@@ -1,0 +1,79 @@
+{
+  "expo": {
+    "name": "FishDex",
+    "slug": "fishdex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "fishdex",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D1522"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fishdex.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "FishDex necesita la cámara para fotografiar tus capturas.",
+        "NSPhotoLibraryUsageDescription": "FishDex necesita acceso a tus fotos para elegir la imagen de una captura.",
+        "NSLocationWhenInUseUsageDescription": "FishDex usa tu ubicación para registrar dónde has pescado."
+      }
+    },
+    "android": {
+      "package": "com.fishdex.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1522"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FishDex necesita acceso a tus fotos para elegir la imagen de una captura.",
+          "cameraPermission": "FishDex necesita la cámara para fotografiar tus capturas."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FishDex usa tu ubicación para registrar dónde has pescado."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FishDex necesita la cámara para fotografiar tus capturas."
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#1C4F86"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://10.0.2.2:8000"
+    }
+  }
+}

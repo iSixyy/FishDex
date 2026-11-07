@@ -1,0 +1,18 @@
+# Versiones verificadas con Python 3.13 y 3.14.
+# Nota: los pines anteriores (Pillow 11.1.0, pydantic 2.10.4) no tienen wheels
+# para Python 3.14 e intentaban compilarse desde fuente, fallando la instalación.
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+sqlalchemy==2.0.54
+pydantic==2.13.5
+pydantic[email]==2.13.5
+pydantic-settings==2.15.0
+python-jose[cryptography]==3.5.0
+bcrypt==5.0.0
+python-multipart==0.0.32
+Pillow==12.3.0
+httpx==0.28.1
+python-dotenv==1.2.3
+slowapi==0.1.10
+pytest==9.1.1
+pytest-cov==7.1.0

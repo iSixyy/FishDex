@@ -1,0 +1,3 @@
+# Ver también backend/.gitignore y mobile/.gitignore para reglas específicas.
+.DS_Store
+*.log

@@ -1,0 +1,2 @@
+🇪🇸  x1  ->  src/components/SpainFlag.tsx
+🥉🥈🥇👑  x1  ->  src/constants/ranks.ts

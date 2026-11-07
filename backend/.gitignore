@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+.env
+*.db
+
+storage/original/*
+storage/thumbnails/*
+!storage/original/.gitkeep
+!storage/thumbnails/.gitkeep
+
+# Datos de `python run.py --render`
+demo/

@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Prebuild nativo (regenerable con `npx expo prebuild`)
+android/
+ios/
+
+# Producción de builds locales
+*.apk
+*.aab
+
+.env
+*.log
+.DS_Store
