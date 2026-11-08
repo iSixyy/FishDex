@@ -93,6 +93,7 @@ async function syncOne(pending: PendingCapture): Promise<SyncOutcome> {
   if (pending.longitude != null) form.append("longitude", String(pending.longitude));
   if (pending.location_name) form.append("location_name", pending.location_name);
   if (pending.bait_technique) form.append("bait_technique", pending.bait_technique);
+  if (pending.released) form.append("released", "true");
   if (pending.image_uri) {
     try {
       await appendImage(form, pending.image_uri, "captura.jpg");

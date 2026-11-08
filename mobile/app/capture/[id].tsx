@@ -12,6 +12,7 @@ import { RarityBadge } from "@/components/RarityBadge";
 import { ShareCaptureModal } from "@/components/ShareCaptureModal";
 import { SpeciesPicker } from "@/components/SpeciesPicker";
 import { TextField } from "@/components/TextField";
+import { ToggleRow } from "@/components/ToggleRow";
 import { WeatherCard } from "@/components/WeatherCard";
 import { fonts, radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -49,6 +50,7 @@ export default function CaptureDetailScreen() {
   const [length, setLength] = useState("");
   const [bait, setBait] = useState("");
   const [place, setPlace] = useState("");
+  const [released, setReleased] = useState(false);
 
   useEffect(() => {
     const captureId = Number(id);
@@ -69,6 +71,7 @@ export default function CaptureDetailScreen() {
     setLength(toInput(capture.length_cm));
     setBait(capture.bait_technique ?? "");
     setPlace(capture.location_name ?? "");
+    setReleased(!!capture.released);
     setSpecies(null);
     if (catalog.length === 0) getSpeciesCatalog().then(setCatalog).catch(() => undefined);
     setEditing(true);
@@ -88,6 +91,7 @@ export default function CaptureDetailScreen() {
         length_cm: lengthValue,
         bait_technique: bait.trim() || null,
         location_name: place.trim() || null,
+        released,
       });
       setCapture(updated);
       setEditing(false);
@@ -150,6 +154,7 @@ export default function CaptureDetailScreen() {
               <Row icon="calendar" label="Fecha" value={formatDateTime(capture.captured_at)} />
               {capture.location_name ? <Row icon="pin" label="Lugar" value={capture.location_name} /> : null}
               {capture.bait_technique ? <Row icon="hook" label="Cebo / técnica" value={capture.bait_technique} /> : null}
+              <Row icon="wave" label="Destino" value={capture.released ? "Devuelto al agua" : "Me lo quedé"} />
               <Row icon="star" label="ELO obtenido" value={`+${capture.elo_earned}`} />
               {capture.is_new_species ? <Text style={styles.flag}>Primera captura de la especie</Text> : null}
               {!capture.is_new_species && (capture.is_personal_record_weight || capture.is_personal_record_length) ? (
@@ -177,6 +182,7 @@ export default function CaptureDetailScreen() {
             </View>
             <TextField label="Lugar" value={place} onChangeText={setPlace} maxLength={150} />
             <TextField label="Cebo / técnica" value={bait} onChangeText={setBait} maxLength={120} />
+            <ToggleRow icon="wave" label="Captura y suelta" description="Lo devolví al agua (+5 ELO)." value={released} onChange={setReleased} />
             <PrimaryButton label="Guardar cambios" onPress={save} loading={saving} />
             <Pressable onPress={() => setEditing(false)} style={styles.cancel}>
               <Text style={styles.cancelText}>Cancelar</Text>

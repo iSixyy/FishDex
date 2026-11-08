@@ -37,7 +37,72 @@ export interface UserProfile {
   stats: UserStats;
   /** Vitrina de insignias (máx. 3). */
   showcase: AchievementPublic[];
+  /** Insignias de temporada, de la más reciente a la más antigua. */
+  season_awards?: SeasonAward[];
 }
+
+export type SeasonTier = "CHAMPION" | "PODIUM" | "TOP10" | "PARTICIPANT";
+
+export interface SeasonAward {
+  season_key: string;
+  season_name: string;
+  position: number;
+  points: number;
+  tier: SeasonTier;
+  tier_label: string;
+}
+
+export interface SeasonPage {
+  key: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  entries: RankedValueEntry[];
+  me: RankedValueEntry | null;
+  rewards: { tier: SeasonTier; label: string; positions: string }[];
+}
+
+export interface ForecastFactor {
+  label: string;
+  points: number;
+  impact: "up" | "down" | "neutral";
+  detail: string;
+}
+
+export interface BiteForecast {
+  score: number;
+  label: "Excelente" | "Buena" | "Regular" | "Mala";
+  summary: string;
+  factors: ForecastFactor[];
+  /** Sin datos de clima: solo hora y luna. */
+  partial: boolean;
+  computed_at: string;
+}
+
+export interface HeatmapCell {
+  latitude: number;
+  longitude: number;
+  captures: number;
+  anglers: number;
+}
+
+export interface HeatmapResponse {
+  species_id: number | null;
+  species_name: string | null;
+  cell_size_deg: number;
+  min_anglers: number;
+  cells: HeatmapCell[];
+}
+
+export interface FishingLicense {
+  expires_on: string | null;
+  region: string | null;
+  /** Negativo si ya ha caducado. */
+  days_left: number | null;
+}
+
+export type ReportTarget = "USER" | "CAPTURE" | "COMMENT";
+export type ReportReason = "SPAM" | "OFFENSIVE" | "FAKE_CAPTURE" | "INAPPROPRIATE" | "OTHER";
 
 export interface AuthResponse {
   access_token: string;
@@ -123,6 +188,8 @@ export interface CapturePublic {
   longitude: number | null;
   location_name: string | null;
   bait_technique: string | null;
+  /** Captura y suelta: el pez se devolvió al agua. */
+  released?: boolean;
   captured_at: string;
   elo_earned: number;
   is_new_species: boolean;
@@ -355,6 +422,7 @@ export interface PendingCapture {
   longitude: number | null;
   location_name: string | null;
   bait_technique: string | null;
+  released?: boolean;
   image_uri: string | null;
   created_at: string;
 }
@@ -382,6 +450,7 @@ export interface FeedEntry {
   weight_kg: number;
   length_cm: number;
   location_name: string | null;
+  released?: boolean;
   captured_at: string;
   caption: string | null;
   like_count: number;

@@ -1,13 +1,15 @@
 import { router } from "expo-router";
 import { DexScreen } from "@/components/DexScreen";
 import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
+import { Icon, IconName } from "@/components/Icon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { API_URL } from "@/constants/config";
-import { spacing, ThemeColors, typography } from "@/constants/theme";
+import { BORDER, radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { ThemePreference, useStyles, useTheme } from "@/context/ThemeContext";
 import { extractErrorMessage } from "@/services/api";
@@ -97,8 +99,17 @@ export default function SettingsScreen() {
 
       <Card>
         <Text style={styles.cardTitle}>Cuenta</Text>
-        <Text style={styles.row}>{user?.display_name}</Text>
-        <Text style={styles.rowMuted}>@{user?.username}</Text>
+        <View style={styles.accountHeader}>
+          <Avatar uri={user?.avatar} name={user?.display_name} size={46} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.row}>{user?.display_name}</Text>
+            <Text style={styles.rowMuted}>@{user?.username}</Text>
+          </View>
+        </View>
+        <SettingsLink icon="edit" label="Editar perfil y foto" onPress={() => router.push("/settings/profile")} />
+        <SettingsLink icon="lock" label="Cambiar contraseña" onPress={() => router.push("/settings/password")} />
+        <SettingsLink icon="flag" label="Licencia de pesca" onPress={() => router.push("/settings/license")} />
+        <SettingsLink icon="users" label="Usuarios bloqueados" onPress={() => router.push("/settings/blocked")} />
       </Card>
 
       <Card>
@@ -127,8 +138,23 @@ export default function SettingsScreen() {
       </Card>
 
       <PrimaryButton label="Cerrar sesión" variant="danger" onPress={handleLogout} style={{ marginTop: spacing.sm }} />
+      <Pressable onPress={() => router.push("/settings/delete-account")} style={styles.deleteLink} accessibilityRole="link">
+        <Text style={styles.deleteText}>Borrar mi cuenta</Text>
+      </Pressable>
     </ScrollView>
     </DexScreen>
+  );
+}
+
+function SettingsLink({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const styles = useStyles(makeStyles);
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+      <Icon name={icon} size={18} color={colors.textPrimary} />
+      <Text style={styles.linkText}>{label}</Text>
+      <Icon name="chevron-right" size={18} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -139,4 +165,23 @@ const makeStyles = (c: ThemeColors) =>
     cardTitle: { ...typography.sectionTitle, color: c.textPrimary, marginBottom: spacing.xs },
     row: { ...typography.bodyMedium, color: c.textPrimary },
     rowMuted: { ...typography.body, fontSize: 14, color: c.textSecondary },
+    accountHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.sm },
+    link: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm + 2,
+      paddingVertical: spacing.sm + 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    linkText: { ...typography.bodyMedium, color: c.textPrimary, flex: 1 },
+    deleteLink: {
+      alignItems: "center",
+      padding: spacing.sm,
+      borderWidth: BORDER,
+      borderStyle: "dashed",
+      borderColor: c.danger,
+      borderRadius: radius.sm,
+    },
+    deleteText: { ...typography.bodyMedium, color: c.danger },
   });

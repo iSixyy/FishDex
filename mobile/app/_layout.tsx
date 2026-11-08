@@ -13,6 +13,7 @@ import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -60,27 +61,11 @@ export default function RootLayout() {
 function ThemedStack() {
   const { colors } = useTheme();
 
-  // Al tocar una notificación push se abre la pantalla correspondiente.
-  // `useLastNotificationResponse` cubre también el arranque en frío: antes
-  // solo había un listener, que no recibe el toque que ABRE la app desde
-  // cerrada, y en ese caso no se navegaba a ningún sitio.
-  const lastResponse = Notifications.useLastNotificationResponse();
-  const handledId = useRef<string | null>(null);
-  useEffect(() => {
-    if (!lastResponse || lastResponse.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-    const id = lastResponse.notification.request.identifier;
-    if (handledId.current === id) return;
-    handledId.current = id;
-    const route = routeForNotification(lastResponse.notification.request.content.data as Record<string, unknown>);
-    // Se olvida la respuesta para que no vuelva a abrir esa pantalla en el
-    // siguiente arranque normal de la app.
-    Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
-    // Se espera un ciclo para que el Stack esté montado antes de navegar.
-    if (route) setTimeout(() => router.push(route as never), 0);
-  }, [lastResponse]);
 
   return (
     <>
+      {/* Las notificaciones push no existen en la versión web. */}
+      {Platform.OS !== "web" ? <NotificationRouter /> : null}
       <StatusBar style={colors.statusBar} />
       <Stack
         screenOptions={{
@@ -109,4 +94,27 @@ function ThemedStack() {
       </Stack>
     </>
   );
+}
+
+/** Al tocar una notificación push se abre la pantalla correspondiente.
+ * `useLastNotificationResponse` cubre también el arranque en frío: antes solo
+ * había un listener, que no recibe el toque que ABRE la app desde cerrada.
+ * Solo se monta en Android/iOS: en web el módulo nativo no existe y el hook
+ * lanzaba un error que tumbaba la app entera. */
+function NotificationRouter() {
+  const lastResponse = Notifications.useLastNotificationResponse();
+  const handledId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!lastResponse || lastResponse.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+    const id = lastResponse.notification.request.identifier;
+    if (handledId.current === id) return;
+    handledId.current = id;
+    const route = routeForNotification(lastResponse.notification.request.content.data as Record<string, unknown>);
+    // Se olvida la respuesta para que no vuelva a abrir esa pantalla en el
+    // siguiente arranque normal de la app.
+    Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+    // Se espera un ciclo para que el Stack esté montado antes de navegar.
+    if (route) setTimeout(() => router.push(route as never), 0);
+  }, [lastResponse]);
+  return null;
 }

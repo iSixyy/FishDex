@@ -14,6 +14,7 @@ import { RegulationNotice } from "@/components/RegulationNotice";
 import { ShareableCapture, ShareCaptureModal } from "@/components/ShareCaptureModal";
 import { SpeciesPicker } from "@/components/SpeciesPicker";
 import { TextField } from "@/components/TextField";
+import { ToggleRow } from "@/components/ToggleRow";
 import { WeatherCard } from "@/components/WeatherCard";
 import { fonts, radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -63,6 +64,7 @@ export default function CreateCaptureScreen() {
   const [weight, setWeight] = useState("");
   const [length, setLength] = useState("");
   const [baitTechnique, setBaitTechnique] = useState("");
+  const [released, setReleased] = useState(false);
   // Fecha/hora fijadas al abrir el formulario (solo lectura).
   const [capturedAt] = useState(() => new Date());
 
@@ -254,6 +256,7 @@ export default function CreateCaptureScreen() {
         longitude: coordinates?.longitude ?? null,
         location_name: locationName,
         bait_technique: baitTechnique.trim() ? baitTechnique.trim() : null,
+        released,
         image_uri: photoUri,
       });
       if (outcome.status === "synced") {
@@ -403,6 +406,13 @@ export default function CreateCaptureScreen() {
               placeholder="Raglú / Spinning"
               maxLength={120}
             />
+            <ToggleRow
+              icon="wave"
+              label="Captura y suelta"
+              description="Lo he devuelto al agua (+5 ELO y logros propios)."
+              value={released}
+              onChange={setReleased}
+            />
           </View>
         )}
 
@@ -477,6 +487,7 @@ export default function CreateCaptureScreen() {
                 value={coordinates ? locationName ?? `${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}` : "Sin ubicación"}
               />
               {baitTechnique.trim() ? <ReviewRow icon="hook" label="Cebo / Técnica" value={baitTechnique.trim()} /> : null}
+              <ReviewRow icon="wave" label="Destino" value={released ? "Devuelto al agua" : "Me lo quedo"} />
             </Card>
             {regulation ? <RegulationNotice check={regulation} /> : null}
           </View>

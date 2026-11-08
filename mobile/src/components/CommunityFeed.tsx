@@ -19,6 +19,7 @@ import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
 import { RarityBadge } from "@/components/RarityBadge";
+import { ReportModal } from "@/components/ReportModal";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { ShareableCapture, ShareCaptureModal } from "@/components/ShareCaptureModal";
 import { TextField } from "@/components/TextField";
@@ -36,6 +37,8 @@ import {
 import { formatRelativeTime, formatWeight } from "@/utils/format";
 import { CaptureComment, FeedEntry } from "@/types";
 import { Alert } from "@/utils/alert";
+import { useAuth } from "@/context/AuthContext";
+import { blockUser } from "@/services/accountService";
 
 const PAGE_SIZE = 20;
 
@@ -71,6 +74,27 @@ export function CommunityFeed({ header }: { header?: React.ReactElement }) {
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [sharing, setSharing] = useState<ShareableCapture | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: "CAPTURE"; id: number } | null>(null);
+  const { user: me } = useAuth();
+
+  const openPostMenu = (entry: FeedEntry) =>
+    Alert.alert(entry.fish_species_name, `Captura de ${entry.user.display_name}`, [
+      { text: "Reportar captura", onPress: () => setReportTarget({ type: "CAPTURE", id: entry.id }) },
+      {
+        text: `Bloquear a ${entry.user.display_name}`,
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await blockUser(entry.user.id);
+            // Sus capturas desaparecen del feed al momento.
+            setEntries((prev) => prev.filter((e) => e.user.id !== entry.user.id));
+          } catch (err) {
+            Alert.alert("No se ha podido bloquear", extractErrorMessage(err));
+          }
+        },
+      },
+      { text: "Cancelar", style: "cancel" },
+    ]);
 
   const isMountedRef = useRef(true);
   useEffect(
@@ -211,12 +235,23 @@ export function CommunityFeed({ header }: { header?: React.ReactElement }) {
             </Text>
           </View>
           <RarityBadge rarity={item.rarity} size="sm" />
+          {item.user.id !== me?.id ? (
+            <Pressable onPress={() => openPostMenu(item)} hitSlop={10} accessibilityLabel="Más opciones">
+              <Icon name="more" size={20} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
         </View>
 
         {photo ? <Image source={{ uri: photo }} style={styles.postImage} resizeMode="cover" /> : null}
 
         <View style={styles.postBody}>
           <Text style={styles.postCaption}>{captionText}</Text>
+          {item.released ? (
+            <View style={styles.releasedChip}>
+              <Icon name="wave" size={14} color={colors.success} />
+              <Text style={styles.releasedText}>Devuelto al agua</Text>
+            </View>
+          ) : null}
           <View style={styles.postActions}>
             <Pressable style={styles.actionButton} onPress={() => handleToggleLike(item)} hitSlop={8}>
               <Icon name="heart" size={20} filled={item.liked_by_me} color={item.liked_by_me ? colors.danger : colors.textSecondary} />
@@ -339,6 +374,7 @@ export function CommunityFeed({ header }: { header?: React.ReactElement }) {
       </Modal>
 
       <ShareCaptureModal capture={sharing} visible={!!sharing} onClose={() => setSharing(null)} />
+      <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
     </View>
   );
 }
@@ -349,6 +385,8 @@ const makeStyles = (c: ThemeColors) =>
     scopeTabs: { marginVertical: spacing.sm },
     post: {},
     postHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md },
+    releasedChip: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", marginTop: 4 },
+    releasedText: { ...typography.captionSmall, color: c.success },
     postUserName: { ...typography.subtitle, fontSize: 15, color: c.textPrimary },
     postMeta: { ...typography.caption, color: c.textMuted },
     postImage: { width: "100%", aspectRatio: 4 / 3, backgroundColor: c.surfaceAlt },

@@ -14,7 +14,9 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: authService.RegisterPayload) => Promise<void>;
-  logout: () => Promise<void>;
+  /** `revokeOnServer: false` cuando la sesión ya no existe en el backend
+   * (cuenta borrada): solo limpia el dispositivo. */
+  logout: (options?: { revokeOnServer?: boolean }) => Promise<void>;
   setUser: (user: User) => void;
   /** Vuelve a pedir el usuario al backend (ELO y rango cambian con cada
    * captura). Sin esto, la cabecera de Inicio mostraba para siempre el ELO
@@ -53,10 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserState(newUser);
   }, []);
 
-  const logout = useCallback(async () => {
-    // Antes de borrar el token: la baja del dispositivo necesita la sesión.
+  const logout = useCallback(async (options?: { revokeOnServer?: boolean }) => {
     await unregisterPushNotifications();
-    await authService.logout();
+    await authService.logout(options);
     setUserState(null);
   }, []);
 

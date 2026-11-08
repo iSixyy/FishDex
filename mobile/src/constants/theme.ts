@@ -193,6 +193,14 @@ export const TIER_COLORS: Record<string, string> = {
   GOLD: "#C99A1E",
 };
 
+/** Colores de las insignias de temporada (por puesto). */
+export const SEASON_TIER_COLORS: Record<string, string> = {
+  CHAMPION: TIER_COLORS.GOLD,
+  PODIUM: TIER_COLORS.SILVER,
+  TOP10: TIER_COLORS.BRONZE,
+  PARTICIPANT: "#4F8A5B",
+};
+
 export const spacing = {
   xs: 4,
   sm: 8,

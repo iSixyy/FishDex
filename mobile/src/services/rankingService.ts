@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import { FriendsRanking, RankingPage } from "@/types";
+import { FriendsRanking, RankingPage, SeasonPage } from "@/types";
 
 export const RANKING_PAGE_SIZE = 50;
 
@@ -29,5 +29,11 @@ export async function getSpeciesRanking(speciesId: number, offset = 0): Promise<
   const { data } = await api.get<RankingPage>(`/ranking/species/${speciesId}`, {
     params: { limit: RANKING_PAGE_SIZE, offset },
   });
+  return data;
+}
+
+/** Temporada en curso: ranking trimestral que se reinicia cada 3 meses. */
+export async function getCurrentSeason(offset = 0): Promise<SeasonPage> {
+  const { data } = await api.get<SeasonPage>("/seasons/current", { params: { limit: RANKING_PAGE_SIZE, offset } });
   return data;
 }

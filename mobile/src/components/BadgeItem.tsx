@@ -21,6 +21,7 @@ const CATEGORY_ICONS: Record<string, IconName> = {
   photos: "camera",
   challenges: "swords",
   spots: "pin",
+  release: "wave",
 };
 
 const TIER_LABEL: Record<string, string> = { BRONZE: "BRONCE", SILVER: "PLATA", GOLD: "ORO" };

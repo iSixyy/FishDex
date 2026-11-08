@@ -61,6 +61,13 @@ export default function LoginScreen() {
           <TextField label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <PrimaryButton label="Entrar" onPress={handleLogin} loading={loading} style={{ marginTop: spacing.xs }} />
+          <Pressable
+            onPress={() => router.push({ pathname: "/auth/forgot", params: { email: email.trim() } })}
+            style={styles.forgot}
+            accessibilityRole="link"
+          >
+            <Text style={styles.forgotText}>¿Has olvidado tu contraseña?</Text>
+          </Pressable>
 
           <Pressable onPress={() => router.push("/auth/register")} style={styles.link} accessibilityRole="link">
             <Text style={styles.linkText}>¿No tienes partida guardada?</Text>
@@ -90,6 +97,8 @@ const makeStyles = (c: ThemeColors) =>
     dialogText: { ...typography.body, fontSize: 21, color: c.textPrimary, flex: 1 },
     error: { ...typography.body, color: c.danger, textAlign: "center", marginBottom: spacing.sm },
     link: { alignItems: "center", marginTop: spacing.lg, gap: 6 },
+    forgot: { alignItems: "center", marginTop: spacing.md },
+    forgotText: { ...typography.body, color: c.textSecondary, textDecorationLine: "underline" },
     linkText: { ...typography.body, color: c.textSecondary },
     linkStrong: { ...typography.button, color: c.textPrimary },
   });

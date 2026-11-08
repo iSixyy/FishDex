@@ -13,7 +13,7 @@ import { Icon, IconName } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { rankColorFor, rankIconFor } from "@/constants/ranks";
-import { fonts, radius, spacing, TAB_BAR_HEIGHT, ThemeColors, typography } from "@/constants/theme";
+import { fonts, radius, SEASON_TIER_COLORS, spacing, TAB_BAR_HEIGHT, ThemeColors, typography } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { useStyles, useTheme } from "@/context/ThemeContext";
 import { getAchievements } from "@/services/achievementService";
@@ -154,6 +154,38 @@ export default function ProfileScreen() {
         )}
       </Card>
 
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.overline}>TEMPORADAS</Text>
+        <Pressable onPress={() => router.push({ pathname: "/ranking", params: { scope: "season" } })} hitSlop={8}>
+          <Text style={styles.sectionLink}>Ver temporada</Text>
+        </Pressable>
+      </View>
+      {profile.season_awards && profile.season_awards.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasonList}>
+          {profile.season_awards.map((award) => (
+            <Card key={award.season_key} style={styles.seasonCard}>
+              <Icon
+                name={award.tier === "PARTICIPANT" ? "medal" : "trophy"}
+                size={30}
+                color={SEASON_TIER_COLORS[award.tier]}
+                filled
+              />
+              <Text style={styles.seasonTier} numberOfLines={2}>{award.tier_label}</Text>
+              <Text style={styles.muted} numberOfLines={1}>{award.season_name.replace("Temporada de ", "")}</Text>
+              <Text style={styles.seasonPos}>{award.position}.º · {award.points} pts</Text>
+            </Card>
+          ))}
+        </ScrollView>
+      ) : (
+        <Card onPress={() => router.push({ pathname: "/ranking", params: { scope: "season" } })} style={styles.biggestCard}>
+          <Icon name="flame" size={26} color={colors.cta} filled />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.biggestName}>Aún sin insignias de temporada</Text>
+            <Text style={styles.muted}>Cada 3 meses el ranking empieza de cero. ¡Entra en el top 10!</Text>
+          </View>
+        </Card>
+      )}
+
       <Text style={[styles.overline, styles.sectionPad]}>MI MAYOR CAPTURA</Text>
       {heaviest ? (
         <Card onPress={() => router.push(`/capture/${heaviest.id}`)} style={styles.biggestCard}>
@@ -288,6 +320,10 @@ const makeStyles = (c: ThemeColors) =>
     showcaseRow: { flexDirection: "row", justifyContent: "space-around" },
     muted: { ...typography.caption, color: c.textSecondary },
     biggestCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginHorizontal: spacing.sm },
+    seasonList: { gap: spacing.sm, paddingHorizontal: spacing.sm },
+    seasonCard: { width: 132, alignItems: "center", gap: 4 },
+    seasonTier: { ...typography.pixelSmall, fontSize: 8, lineHeight: 12, color: c.textPrimary, textAlign: "center" },
+    seasonPos: { ...typography.captionSmall, color: c.textSecondary },
     biggestThumb: { width: 64, height: 64, borderRadius: radius.sm, borderWidth: 2, borderColor: c.border },
     thumbEmpty: { backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" },
     biggestName: { fontFamily: fonts.pixel, fontSize: 11, lineHeight: 16, color: c.textPrimary, marginBottom: 4 },

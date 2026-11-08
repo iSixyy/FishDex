@@ -6,7 +6,7 @@ import { api, extractErrorMessage } from "@/services/api";
 import { appendImage, persistImageForQueue } from "@/services/imageService";
 import { getCache, setCache } from "@/services/storageService";
 import { enqueueCapture } from "@/services/syncQueue";
-import { CapturePublic, CaptureResult, MapCapturePin, PendingCapture, User } from "@/types";
+import { CapturePublic, CaptureResult, HeatmapResponse, MapCapturePin, PendingCapture, User } from "@/types";
 
 /** Máximo que admite `GET /captures` por página (`le=500` en el backend). */
 const CAPTURES_PAGE_SIZE = 500;
@@ -20,6 +20,7 @@ export interface CreateCaptureInput {
   longitude: number | null;
   location_name: string | null;
   bait_technique: string | null;
+  released: boolean;
   image_uri: string | null;
 }
 
@@ -57,6 +58,7 @@ export async function createCapture(input: CreateCaptureInput): Promise<CreateCa
   if (input.longitude != null) form.append("longitude", String(input.longitude));
   if (input.location_name) form.append("location_name", input.location_name);
   if (input.bait_technique) form.append("bait_technique", input.bait_technique);
+  if (input.released) form.append("released", "true");
   if (input.image_uri) {
     await appendImage(form, input.image_uri, "captura.jpg");
   }
@@ -146,6 +148,15 @@ export async function getCachedCaptures(): Promise<CapturePublic[]> {
   return (await getCache<CapturePublic[]>(STORAGE_KEYS.CAPTURES_CACHE)) ?? [];
 }
 
+/** Zonas aproximadas donde pesca la comunidad (celdas de ~11 km con al
+ * menos 2 pescadores distintos). Sin coordenadas exactas de nadie. */
+export async function getHeatmap(speciesId?: number | null): Promise<HeatmapResponse> {
+  const { data } = await api.get<HeatmapResponse>("/map/heatmap", {
+    params: speciesId != null ? { species_id: speciesId } : {},
+  });
+  return data;
+}
+
 /** Capturas propias con ubicación, para los pines del mapa. */
 export async function getMapCaptures(): Promise<MapCapturePin[]> {
   const { data } = await api.get<MapCapturePin[]>("/map/captures");
@@ -163,6 +174,7 @@ export interface CaptureChanges {
   length_cm?: number;
   location_name?: string | null;
   bait_technique?: string | null;
+  released?: boolean;
 }
 
 /** Corrige una captura. El servidor recalcula el ELO de todo el historial. */

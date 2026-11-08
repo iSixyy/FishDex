@@ -10,6 +10,7 @@ import { HeroCard } from "@/components/HeroCard";
 import { Icon } from "@/components/Icon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProgressBar } from "@/components/ProgressBar";
+import { ForecastCard } from "@/components/ForecastCard";
 import { WeatherCard } from "@/components/WeatherCard";
 import { dayKey, WeekStrip } from "@/components/WeekStrip";
 import { radius, spacing, ThemeColors, typography } from "@/constants/theme";
@@ -20,9 +21,9 @@ import { getRecentCaptures } from "@/services/captureService";
 import { getChallenges } from "@/services/challengeService";
 import { getFeed } from "@/services/feedService";
 import { getFishDex } from "@/services/fishService";
-import { getWeather } from "@/services/weatherService";
+import { getForecast, getWeather } from "@/services/weatherService";
 import { formatElo, formatWeight } from "@/utils/format";
-import { CapturePublic, Challenge, FeedEntry, FishDexProgress, WeatherInfo } from "@/types";
+import { BiteForecast, CapturePublic, Challenge, FeedEntry, FishDexProgress, WeatherInfo } from "@/types";
 
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MONTH_NAMES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -62,6 +63,7 @@ export default function HomeScreen() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [highlights, setHighlights] = useState<FeedEntry[]>([]);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [forecast, setForecast] = useState<BiteForecast | null>(null);
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,11 +80,24 @@ export default function HomeScreen() {
     try {
       const permission = await Location.getForegroundPermissionsAsync();
       if (permission.granted) {
-        const position = await Location.getLastKnownPositionAsync();
-        if (position) setWeather(await getWeather(position.coords.latitude, position.coords.longitude));
+        // Sin posición en caché (p. ej. recién instalada) se pide una de baja
+        // precisión: el permiso ya está concedido, así que no sale ningún diálogo.
+        const position =
+          (await Location.getLastKnownPositionAsync()) ??
+          (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }));
+        if (position) {
+          const { latitude, longitude } = position.coords;
+          const [conditions, bite] = await Promise.all([
+            getWeather(latitude, longitude).catch(() => null),
+            getForecast(latitude, longitude).catch(() => null),
+          ]);
+          setWeather(conditions);
+          setForecast(bite);
+        }
       }
     } catch {
       setWeather(null);
+      setForecast(null);
     }
   }, [refreshUser]);
 
@@ -202,6 +217,12 @@ export default function HomeScreen() {
           </Card>
         ) : null}
       </View>
+
+      {forecast ? (
+        <View style={styles.section}>
+          <ForecastCard forecast={forecast} title="¿Pican hoy aquí?" />
+        </View>
+      ) : null}
 
       {weather ? (
         <View style={styles.section}>

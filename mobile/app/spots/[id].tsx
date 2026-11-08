@@ -11,6 +11,7 @@ import { Icon } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TextField } from "@/components/TextField";
+import { ForecastCard } from "@/components/ForecastCard";
 import { WeatherCard } from "@/components/WeatherCard";
 import { radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useStyles, useTheme } from "@/context/ThemeContext";
@@ -19,7 +20,8 @@ import { getFriends } from "@/services/friendService";
 import { pickFromGallery, takePhoto } from "@/services/imageService";
 import { addSpotPhoto, deleteSpot, deleteSpotPhoto, getSpot, getSpotWeather, shareSpot, updateSpot } from "@/services/spotService";
 import { formatDate } from "@/utils/format";
-import { Spot, User, WeatherInfo } from "@/types";
+import { BiteForecast, Spot, User, WeatherInfo } from "@/types";
+import { getSpotForecast } from "@/services/weatherService";
 import { Alert } from "@/utils/alert";
 
 /** Detalle de un spot: mapa, notas, fotos, condiciones actuales y, si es
@@ -30,6 +32,7 @@ export default function SpotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [spot, setSpot] = useState<Spot | null>(null);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [forecast, setForecast] = useState<BiteForecast | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,6 +56,7 @@ export default function SpotDetailScreen() {
       const data = await getSpot(spotId);
       setSpot(data);
       getSpotWeather(spotId).then(setWeather).catch(() => undefined);
+      getSpotForecast(spotId).then(setForecast).catch(() => undefined);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -161,6 +165,7 @@ export default function SpotDetailScreen() {
         </Card>
       )}
 
+      {forecast ? <ForecastCard forecast={forecast} title="Previsión en este spot" /> : null}
       {weather ? <WeatherCard weather={weather} title="Condiciones ahora" /> : null}
 
       <Text style={styles.overline}>FOTOS</Text>

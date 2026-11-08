@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { BadgeItem } from "@/components/BadgeItem";
@@ -12,9 +12,11 @@ import { FishDexCard } from "@/components/FishDexCard";
 import { Icon } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { ReportModal } from "@/components/ReportModal";
 import { rankColorFor, rankIconFor } from "@/constants/ranks";
 import { dex as dexColors, radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useStyles, useTheme } from "@/context/ThemeContext";
+import { blockUser } from "@/services/accountService";
 import { extractErrorMessage } from "@/services/api";
 import { compareWithFriend, getFriendFishDex, removeFriend } from "@/services/friendService";
 import { getUserProfile } from "@/services/userService";
@@ -31,6 +33,7 @@ export default function FriendProfileScreen() {
   const [showcase, setShowcase] = useState<AchievementPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +75,28 @@ export default function FriendProfileScreen() {
     ]);
   };
 
+  const handleBlock = () => {
+    Alert.alert(
+      "Bloquear usuario",
+      "Dejaréis de ser amigos, no podrá volver a enviarte solicitudes y no verás sus comentarios. Puedes desbloquearlo en Ajustes.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Bloquear",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await blockUser(Number(userId));
+              router.back();
+            } catch (err) {
+              Alert.alert("No se ha podido bloquear", extractErrorMessage(err));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) return <DexScreen title="Entrenador" onBack={() => router.back()}><LoadingScreen /></DexScreen>;
   if (error) return <DexScreen title="Entrenador" onBack={() => router.back()}><EmptyState icon="alert" title="No se ha podido cargar el perfil" description={error} /></DexScreen>;
   if (!fishdex) return <DexScreen title="Entrenador" onBack={() => router.back()}><LoadingScreen /></DexScreen>;
@@ -106,6 +131,15 @@ export default function FriendProfileScreen() {
                 onPress={() => router.push({ pathname: "/challenges/new", params: { friendId: String(user.id) } })}
               />
               <PrimaryButton label="Eliminar" variant="secondary" compact onPress={handleRemove} />
+            </View>
+            <View style={styles.moderation}>
+              <Pressable onPress={handleBlock} hitSlop={6} accessibilityRole="button">
+                <Text style={styles.moderationText}>Bloquear</Text>
+              </Pressable>
+              <Text style={styles.moderationDot}>·</Text>
+              <Pressable onPress={() => setReporting(true)} hitSlop={6} accessibilityRole="button">
+                <Text style={styles.moderationText}>Reportar</Text>
+              </Pressable>
             </View>
           </Card>
 
@@ -148,6 +182,7 @@ export default function FriendProfileScreen() {
         </View>
       )}
     />
+    <ReportModal target={reporting ? { type: "USER", id: user.id } : null} onClose={() => setReporting(false)} />
     </DexScreen>
   );
 }
@@ -177,6 +212,9 @@ const makeStyles = (c: ThemeColors) =>
     rankRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
     rank: { ...typography.body, color: c.textSecondary },
     actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+    moderation: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm },
+    moderationText: { ...typography.caption, color: c.textMuted, textDecorationLine: "underline" },
+    moderationDot: { ...typography.caption, color: c.textMuted },
     overline: { ...typography.overline, color: c.textMuted, marginBottom: spacing.sm },
     showcaseRow: { flexDirection: "row", justifyContent: "space-around" },
     compareHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs },

@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { LongPressEvent, Marker, PROVIDER_DEFAULT, UrlTile } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,23 +9,34 @@ import { Icon } from "@/components/Icon";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { DexScreen } from "@/components/DexScreen";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { SpeciesPicker } from "@/components/SpeciesPicker";
 import { TextField } from "@/components/TextField";
 import { radius, shadow, spacing, TAB_BAR_HEIGHT, ThemeColors, typography } from "@/constants/theme";
 import { useStyles, useTheme } from "@/context/ThemeContext";
 import { extractErrorMessage, mediaUrl } from "@/services/api";
-import { getMapCaptures } from "@/services/captureService";
+import { getHeatmap, getMapCaptures } from "@/services/captureService";
+import { getSpeciesCatalog } from "@/services/fishService";
 import { getCurrentCoordinates } from "@/services/locationService";
 import { createSpot, getSpots } from "@/services/spotService";
 import { formatDateTime, formatLength, formatWeight } from "@/utils/format";
-import { MapCapturePin, Spot } from "@/types";
+import { FishCatalogEntry, HeatmapResponse, MapCapturePin, Spot } from "@/types";
 import { Alert } from "@/utils/alert";
 
-const SPAIN_INITIAL_REGION = { latitude: 40.2, longitude: -3.7, latitudeDelta: 9, longitudeDelta: 9 };
+// Encuadre de la península entera: con 9° de ancho, en un móvil en vertical
+// quedaban fuera Galicia y Cataluña (de -9,3° a 3,3° de longitud).
+const SPAIN_INITIAL_REGION = { latitude: 40.0, longitude: -3.0, latitudeDelta: 9, longitudeDelta: 13.5 };
 
 const MAP_TABS = [
   { value: "captures", label: "Capturas" },
   { value: "spots", label: "Spots" },
+  { value: "zones", label: "Zonas" },
 ] as const;
+
+/** Color de una zona del mapa de calor según su peso relativo (0..1). */
+function heatColor(ratio: number): string {
+  const alpha = 0.25 + 0.5 * ratio;
+  return ratio > 0.66 ? `rgba(192,57,43,${alpha})` : ratio > 0.33 ? `rgba(228,87,46,${alpha})` : `rgba(240,160,40,${alpha})`;
+}
 type MapTabValue = (typeof MAP_TABS)[number]["value"];
 
 /** Agrupa capturas que comparten (casi) la misma coordenada (~11 m) para
@@ -102,6 +113,24 @@ export default function MapScreen() {
 
   const clusters = useMemo(() => clusterPins(pins), [pins]);
 
+  // --- Zonas (mapa de calor de la comunidad) ---
+  const [heatmap, setHeatmap] = useState<HeatmapResponse | null>(null);
+  const [heatSpecies, setHeatSpecies] = useState<FishCatalogEntry | null>(null);
+  const [catalog, setCatalog] = useState<FishCatalogEntry[]>([]);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  useEffect(() => {
+    if (tab !== "zones") return;
+    let cancelled = false;
+    getHeatmap(heatSpecies?.id ?? null)
+      .then((data) => !cancelled && setHeatmap(data))
+      .catch((err) => !cancelled && setLoadError(extractErrorMessage(err)));
+    if (catalog.length === 0) getSpeciesCatalog().then(setCatalog).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, heatSpecies]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maxCaptures = Math.max(1, ...(heatmap?.cells.map((c) => c.captures) ?? [1]));
+
   const handleCenterOnMe = async () => {
     setCentering(true);
     const coords = await getCurrentCoordinates();
@@ -166,7 +195,21 @@ export default function MapScreen() {
           {showTileOverlay ? (
             <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
           ) : null}
-          {tab === "captures"
+          {tab === "zones"
+            ? (heatmap?.cells ?? []).map((cell) => {
+                // Burbuja en píxeles (no un círculo en metros): una zona de
+                // ~11 km se vería como un punto a escala de España.
+                const ratio = cell.captures / maxCaptures;
+                const size = 26 + Math.round(26 * ratio);
+                return (
+                  <Marker key={`${cell.latitude},${cell.longitude}`} coordinate={{ latitude: cell.latitude, longitude: cell.longitude }}>
+                    <View style={[styles.heatBubble, { width: size, height: size, borderRadius: size / 2, backgroundColor: heatColor(ratio) }]}>
+                      <Text style={styles.heatBubbleText}>{cell.captures}</Text>
+                    </View>
+                  </Marker>
+                );
+              })
+            : tab === "captures"
             ? clusters.map((cluster) => (
                 <Marker
                   key={cluster.key}
@@ -200,6 +243,27 @@ export default function MapScreen() {
           <View style={styles.banner}>
             <Icon name="offline" size={16} color={colors.danger} />
             <Text style={styles.bannerText}>{loadError}</Text>
+          </View>
+        ) : tab === "zones" ? (
+          <View style={styles.zonesPanel}>
+            <Pressable style={styles.zonesSelect} onPress={() => setPickerVisible(true)}>
+              <Icon name="fish" size={16} color={colors.textSecondary} />
+              <Text style={styles.zonesSelectText} numberOfLines={1}>
+                {heatSpecies ? heatSpecies.name : "Todas las especies"}
+              </Text>
+              {heatSpecies ? (
+                <Pressable onPress={() => setHeatSpecies(null)} hitSlop={8}>
+                  <Icon name="close" size={16} color={colors.textMuted} />
+                </Pressable>
+              ) : (
+                <Icon name="chevron-right" size={16} color={colors.textMuted} />
+              )}
+            </Pressable>
+            <Text style={styles.bannerText}>
+              {heatmap && heatmap.cells.length === 0
+                ? "Aún no hay zonas con suficientes pescadores para mostrarlas."
+                : `${heatmap?.cells.length ?? 0} zonas del último año. Solo se muestran zonas de ~11 km con ${heatmap?.min_anglers ?? 2}+ pescadores: nunca el sitio exacto de nadie.`}
+            </Text>
           </View>
         ) : (tab === "captures" ? pins.length : spots.length) === 0 ? (
           <View style={styles.banner}>
@@ -278,6 +342,16 @@ export default function MapScreen() {
         <Text style={[styles.attribution, { bottom: 2 }]}>© OpenStreetMap contributors</Text>
       </View>
 
+      <SpeciesPicker
+        visible={pickerVisible}
+        species={catalog}
+        onSelect={(s) => {
+          setHeatSpecies(s);
+          setPickerVisible(false);
+        }}
+        onClose={() => setPickerVisible(false)}
+      />
+
       <Modal visible={!!newSpotCoords} transparent animationType="fade" onRequestClose={() => !savingSpot && setNewSpotCoords(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -325,6 +399,22 @@ const makeStyles = (c: ThemeColors) =>
       borderColor: c.border,
     },
     bannerText: { ...typography.caption, color: c.textSecondary, flex: 1 },
+    zonesPanel: {
+      position: "absolute",
+      top: spacing.sm,
+      left: spacing.sm,
+      right: 64,
+      gap: spacing.xs,
+      padding: spacing.sm,
+      backgroundColor: c.surface,
+      borderWidth: 2,
+      borderColor: c.border,
+      borderRadius: radius.md,
+    },
+    zonesSelect: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    heatBubble: { alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(158,52,23,0.8)" },
+    heatBubbleText: { ...typography.pixelSmall, fontSize: 8, color: "#FFFFFF" },
+    zonesSelectText: { ...typography.bodyMedium, color: c.textPrimary, flex: 1 },
     floatingButtons: { position: "absolute", right: spacing.md, top: spacing.md, gap: spacing.sm },
     floatingButton: {
       width: 44,
