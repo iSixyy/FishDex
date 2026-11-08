@@ -12,6 +12,8 @@ export async function checkRegulation(params: {
   length_cm?: number | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Día de la captura, "AAAA-MM-DD". */
+  on_date?: string | null;
 }): Promise<RegulationCheck> {
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v != null));
   const { data } = await api.get<RegulationCheck>("/regulations/check", { params: clean });

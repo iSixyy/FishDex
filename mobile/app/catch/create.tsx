@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,6 +26,7 @@ import { consumePendingPhoto } from "@/services/pendingPhoto";
 import { checkRegulation, getWeather } from "@/services/weatherService";
 import { formatDate, formatTime } from "@/utils/format";
 import { AIIdentifyResponse, CaptureResult, FishCatalogEntry, RegulationCheck, WeatherInfo } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const STEP_LABELS = ["Foto", "Datos", "Ubicación", "Revisar"] as const;
 const LAST_STEP = STEP_LABELS.length - 1;
@@ -34,6 +35,12 @@ const LAST_STEP = STEP_LABELS.length - 1;
 // evita encolar sin conexión una captura que el servidor rechazaría después.
 const MAX_WEIGHT_KG = 500;
 const MAX_LENGTH_CM = 1000;
+
+/** "AAAA-MM-DD" del día LOCAL (no UTC) de una fecha. */
+function localDateKey(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 /** "3.4" -> "3,4" para mostrar las estimaciones de la IA en formato español. */
 function toInput(value: number | null): string {
@@ -72,6 +79,9 @@ export default function CreateCaptureScreen() {
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [locatingGps, setLocatingGps] = useState(false);
+  // Separado de `locatingGps`: si la geocodificación inversa no encuentra
+  // nombre, antes se mostraba "Buscando el nombre del lugar..." para siempre.
+  const [geocoding, setGeocoding] = useState(false);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [regulation, setRegulation] = useState<RegulationCheck | null>(null);
 
@@ -160,13 +170,26 @@ export default function CreateCaptureScreen() {
     setCoordinates(coords);
     setLocationName(null);
     setWeather(null);
+    setGeocoding(true);
     const [name, conditions] = await Promise.all([
       reverseGeocodePlaceName(coords),
       getWeather(coords.latitude, coords.longitude).catch(() => null),
     ]);
     setLocationName(name);
     setWeather(conditions);
+    setGeocoding(false);
     setLocatingGps(false);
+  };
+
+  /** "Registrar sin ubicación" debe registrarla SIN ubicación: antes solo
+   * pasaba al siguiente paso y, si ya se había pulsado el GPS, las
+   * coordenadas se enviaban igualmente. */
+  const handleSkipLocation = () => {
+    setCoordinates(null);
+    setLocationName(null);
+    setWeather(null);
+    setGeocoding(false);
+    setStep((s) => Math.min(s + 1, LAST_STEP));
   };
 
   const weightValue = Number(weight.replace(",", "."));
@@ -191,13 +214,15 @@ export default function CreateCaptureScreen() {
       length_cm: lengthValue || null,
       latitude: coordinates?.latitude,
       longitude: coordinates?.longitude,
+      // La veda depende del día de la captura, en hora local del móvil.
+      on_date: localDateKey(capturedAt),
     })
       .then((data) => !cancelled && setRegulation(data))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [step, species, lengthValue, coordinates]);
+  }, [step, species, lengthValue, coordinates, capturedAt]);
 
   const goToNextStep = () => {
     if (step === 1 && dataStepError) {
@@ -406,7 +431,9 @@ export default function CreateCaptureScreen() {
               </View>
             )}
             <Text style={styles.locationName}>
-              {coordinates ? locationName ?? "Buscando el nombre del lugar..." : "Aún no se ha obtenido la ubicación."}
+              {coordinates
+                ? locationName ?? (geocoding ? "Buscando el nombre del lugar..." : "Lugar sin nombre conocido")
+                : "Aún no se ha obtenido la ubicación."}
             </Text>
             <PrimaryButton
               label={coordinates ? "Actualizar ubicación" : "Obtener ubicación GPS"}
@@ -416,7 +443,7 @@ export default function CreateCaptureScreen() {
               loading={locatingGps}
             />
             {weather ? <WeatherCard weather={weather} title="Condiciones ahora" /> : null}
-            <Pressable onPress={goToNextStep} style={styles.skipLocationLink}>
+            <Pressable onPress={handleSkipLocation} style={styles.skipLocationLink}>
               <Text style={styles.skipLocationText}>Registrar sin ubicación</Text>
             </Pressable>
           </View>

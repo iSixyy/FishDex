@@ -2,7 +2,7 @@ import axios from "axios";
 
 import { CAPTURE_UPLOAD_TIMEOUT_MS, STORAGE_KEYS } from "@/constants/config";
 import { api } from "@/services/api";
-import { buildImageFormPart, deletePersistedImage } from "@/services/imageService";
+import { appendImage, deletePersistedImage } from "@/services/imageService";
 import { getCache, getToken, setCache } from "@/services/storageService";
 import { DiscardedCapture, PendingCapture, User } from "@/types";
 
@@ -94,7 +94,12 @@ async function syncOne(pending: PendingCapture): Promise<SyncOutcome> {
   if (pending.location_name) form.append("location_name", pending.location_name);
   if (pending.bait_technique) form.append("bait_technique", pending.bait_technique);
   if (pending.image_uri) {
-    form.append("image", buildImageFormPart(pending.image_uri) as unknown as Blob, "captura.jpg");
+    try {
+      await appendImage(form, pending.image_uri, "captura.jpg");
+    } catch {
+      // La foto ya no existe (en web, un blob: de una sesión anterior): mejor
+      // subir la captura sin ella que dejarla atascada para siempre en la cola.
+    }
   }
 
   try {

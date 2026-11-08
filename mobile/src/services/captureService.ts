@@ -3,7 +3,7 @@ import * as Crypto from "expo-crypto";
 
 import { CAPTURE_UPLOAD_TIMEOUT_MS, STORAGE_KEYS } from "@/constants/config";
 import { api, extractErrorMessage } from "@/services/api";
-import { buildImageFormPart, persistImageForQueue } from "@/services/imageService";
+import { appendImage, persistImageForQueue } from "@/services/imageService";
 import { getCache, setCache } from "@/services/storageService";
 import { enqueueCapture } from "@/services/syncQueue";
 import { CapturePublic, CaptureResult, MapCapturePin, PendingCapture, User } from "@/types";
@@ -58,7 +58,7 @@ export async function createCapture(input: CreateCaptureInput): Promise<CreateCa
   if (input.location_name) form.append("location_name", input.location_name);
   if (input.bait_technique) form.append("bait_technique", input.bait_technique);
   if (input.image_uri) {
-    form.append("image", buildImageFormPart(input.image_uri) as unknown as Blob, "captura.jpg");
+    await appendImage(form, input.image_uri, "captura.jpg");
   }
 
   try {
@@ -73,11 +73,16 @@ export async function createCapture(input: CreateCaptureInput): Promise<CreateCa
       // vaciarse en cualquier momento. Como la captura puede tardar días en
       // sincronizarse (offline prolongado), la copiamos a un directorio
       // persistente antes de guardarla en la cola.
-      const persistedImageUri = input.image_uri ? await persistImageForQueue(input.image_uri) : null;
       const owner = await getCache<User>(STORAGE_KEYS.AUTH_USER);
+      if (!owner) {
+        // Sin dueño conocido la captura se subiría con la cuenta que esté
+        // abierta al sincronizar, aunque fuera otra: mejor no encolarla.
+        throw new Error("No se ha podido guardar la captura sin conexión. Vuelve a iniciar sesión e inténtalo de nuevo.");
+      }
+      const persistedImageUri = input.image_uri ? await persistImageForQueue(input.image_uri) : null;
       const pending: PendingCapture = {
         localId,
-        user_id: owner?.id ?? null,
+        user_id: owner.id,
         ...input,
         image_uri: persistedImageUri,
         created_at: new Date().toISOString(),
@@ -120,6 +125,21 @@ export async function getMyCaptures(speciesId?: number): Promise<CapturePublic[]
     await setCache(STORAGE_KEYS.CAPTURES_CACHE, data);
   }
   return data;
+}
+
+/** Las capturas más recientes (una sola página). Para pantallas que solo
+ * miran los últimos días (Inicio: racha y semana): descargar TODO el
+ * historial cada vez que se abría Inicio era cada vez más lento. Sin
+ * conexión devuelve la última lista guardada. */
+export async function getRecentCaptures(limit = 200): Promise<CapturePublic[]> {
+  try {
+    const { data } = await api.get<CapturePublic[]>("/captures", { params: { limit, offset: 0 } });
+    return data;
+  } catch (error) {
+    const cached = await getCachedCaptures();
+    if (cached.length > 0) return cached;
+    throw error;
+  }
 }
 
 export async function getCachedCaptures(): Promise<CapturePublic[]> {

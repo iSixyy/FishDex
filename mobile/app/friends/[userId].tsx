@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { BadgeItem } from "@/components/BadgeItem";
@@ -20,6 +20,7 @@ import { compareWithFriend, getFriendFishDex, removeFriend } from "@/services/fr
 import { getUserProfile } from "@/services/userService";
 import { formatElo } from "@/utils/format";
 import { AchievementPublic, FriendComparison, FriendFishDex } from "@/types";
+import { Alert } from "@/utils/alert";
 
 export default function FriendProfileScreen() {
   const styles = useStyles(makeStyles);

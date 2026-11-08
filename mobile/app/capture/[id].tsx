@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
@@ -21,6 +21,7 @@ import { deleteCapture, getCapture, updateCapture } from "@/services/captureServ
 import { getSpeciesCatalog } from "@/services/fishService";
 import { formatDateTime, formatLength, formatWeight } from "@/utils/format";
 import { CapturePublic, FishCatalogEntry } from "@/types";
+import { Alert } from "@/utils/alert";
 
 function toInput(value: number): string {
   return String(value).replace(".", ",");

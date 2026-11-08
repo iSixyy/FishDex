@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { DexScreen } from "@/components/DexScreen";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -13,6 +13,7 @@ import { ThemePreference, useStyles, useTheme } from "@/context/ThemeContext";
 import { extractErrorMessage } from "@/services/api";
 import { registerForPushNotifications } from "@/services/notificationService";
 import { queueLength, trySyncQueue } from "@/services/syncQueue";
+import { Alert } from "@/utils/alert";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "Sistema" },

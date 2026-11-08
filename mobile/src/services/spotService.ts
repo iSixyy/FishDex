@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import { buildImageFormPart } from "@/services/imageService";
+import { appendImage } from "@/services/imageService";
 import { Spot, WeatherInfo } from "@/types";
 
 export async function getSpots(): Promise<Spot[]> {
@@ -38,7 +38,7 @@ export async function shareSpot(id: number, friendIds: number[]): Promise<Spot> 
 
 export async function addSpotPhoto(id: number, imageUri: string): Promise<Spot> {
   const form = new FormData();
-  form.append("image", buildImageFormPart(imageUri) as unknown as Blob, "spot.jpg");
+  await appendImage(form, imageUri, "spot.jpg");
   const { data } = await api.post<Spot>(`/spots/${id}/photos`, form, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 60000,

@@ -1,6 +1,6 @@
 import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
-import { Alert, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
 import { Icon } from "@/components/Icon";
@@ -9,6 +9,7 @@ import { dex, fonts, radius, spacing } from "@/constants/theme";
 import { useGameConfig } from "@/context/GameConfigContext";
 import { mediaUrl } from "@/services/api";
 import { formatDate, formatLength, formatWeight } from "@/utils/format";
+import { Alert } from "@/utils/alert";
 
 export interface ShareableCapture {
   fish_species_name: string;

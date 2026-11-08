@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -14,6 +14,7 @@ import { useStyles } from "@/context/ThemeContext";
 import { extractErrorMessage } from "@/services/api";
 import { acceptFriendRequest, getPendingRequests, rejectFriendRequest } from "@/services/friendService";
 import { FriendRequestPublic } from "@/types";
+import { Alert } from "@/utils/alert";
 
 export default function FriendRequestsScreen() {
   const styles = useStyles(makeStyles);

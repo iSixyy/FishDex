@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { STORAGE_KEYS } from "@/constants/config";
 import * as authService from "@/services/authService";
@@ -80,12 +80,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // inválido), el interceptor de api.ts dispara este handler: se limpia la
   // sesión y se manda al usuario a la pantalla de login en vez de dejarlo
   // atrapado en una pantalla de error sin salida.
+  //
+  // Varias peticiones pueden recibir 401 a la vez: `loggingOut` evita repetir
+  // el cierre (y la navegación) una vez por petición. También se da de baja
+  // el token push: antes el móvil seguía recibiendo los avisos de la cuenta
+  // caducada (el backend permite la baja sin sesión válida).
+  const loggingOut = useRef(false);
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      authService.logout().finally(() => {
-        setUserState(null);
-        router.replace("/auth/login");
-      });
+      if (loggingOut.current) return;
+      loggingOut.current = true;
+      unregisterPushNotifications()
+        .catch(() => undefined)
+        .then(() => authService.logout({ revokeOnServer: false }))
+        .finally(() => {
+          loggingOut.current = false;
+          setUserState(null);
+          router.replace("/auth/login");
+        });
     });
     return () => setUnauthorizedHandler(null);
   }, []);

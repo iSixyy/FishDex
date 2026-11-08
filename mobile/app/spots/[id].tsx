@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from "react-native-maps";
 
 import { Card } from "@/components/Card";
@@ -20,6 +20,7 @@ import { pickFromGallery, takePhoto } from "@/services/imageService";
 import { addSpotPhoto, deleteSpot, deleteSpotPhoto, getSpot, getSpotWeather, shareSpot, updateSpot } from "@/services/spotService";
 import { formatDate } from "@/utils/format";
 import { Spot, User, WeatherInfo } from "@/types";
+import { Alert } from "@/utils/alert";
 
 /** Detalle de un spot: mapa, notas, fotos, condiciones actuales y, si es
  * tuyo, edición y con qué amigos concretos lo compartes. */

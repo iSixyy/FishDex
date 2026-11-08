@@ -2,7 +2,6 @@ import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -36,6 +35,7 @@ import {
 } from "@/services/feedService";
 import { formatRelativeTime, formatWeight } from "@/utils/format";
 import { CaptureComment, FeedEntry } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const PAGE_SIZE = 20;
 
@@ -125,7 +125,13 @@ export function CommunityFeed({ header }: { header?: React.ReactElement }) {
     try {
       const data = await getFeed(scope, PAGE_SIZE, entries.length);
       if (!isMountedRef.current) return;
-      setEntries((prev) => [...prev, ...data]);
+      // La paginación es por offset: si entra una captura nueva entre dos
+      // páginas, la siguiente repite entradas ya mostradas (y FlatList avisa
+      // de claves duplicadas). Se descartan las que ya están.
+      setEntries((prev) => {
+        const seen = new Set(prev.map((e) => e.id));
+        return [...prev, ...data.filter((e) => !seen.has(e.id))];
+      });
       setHasMore(data.length === PAGE_SIZE);
     } catch {
       // Un fallo al pedir la siguiente página no tira el feed visible.

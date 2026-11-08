@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { LongPressEvent, Marker, PROVIDER_DEFAULT, UrlTile } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,6 +18,7 @@ import { getCurrentCoordinates } from "@/services/locationService";
 import { createSpot, getSpots } from "@/services/spotService";
 import { formatDateTime, formatLength, formatWeight } from "@/utils/format";
 import { MapCapturePin, Spot } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const SPAIN_INITIAL_REGION = { latitude: 40.2, longitude: -3.7, latitudeDelta: 9, longitudeDelta: 9 };
 

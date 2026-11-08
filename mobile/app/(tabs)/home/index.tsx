@@ -16,7 +16,7 @@ import { radius, spacing, ThemeColors, typography } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { useStyles, useTheme } from "@/context/ThemeContext";
 import { mediaUrl } from "@/services/api";
-import { getMyCaptures } from "@/services/captureService";
+import { getRecentCaptures } from "@/services/captureService";
 import { getChallenges } from "@/services/challengeService";
 import { getFeed } from "@/services/feedService";
 import { getFishDex } from "@/services/fishService";
@@ -67,7 +67,7 @@ export default function HomeScreen() {
 
   const load = useCallback(async () => {
     refreshUser();
-    const results = await Promise.allSettled([getMyCaptures(), getFishDex(), getChallenges(), getFeed("highlights", 8, 0)]);
+    const results = await Promise.allSettled([getRecentCaptures(), getFishDex(), getChallenges(), getFeed("highlights", 8, 0)]);
     if (results[0].status === "fulfilled") setCaptures(results[0].value);
     if (results[1].status === "fulfilled") setDex(results[1].value);
     if (results[2].status === "fulfilled") setChallenges(results[2].value);

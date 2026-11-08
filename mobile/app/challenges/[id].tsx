@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -17,6 +17,7 @@ import { extractErrorMessage } from "@/services/api";
 import { cancelChallenge, getChallenge, joinEvent, respondChallenge } from "@/services/challengeService";
 import { formatDate, formatLength, formatWeight } from "@/utils/format";
 import { Challenge } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const KIND_LABEL = { DUEL: "Reto 1 contra 1", TOURNAMENT: "Torneo", EVENT: "Evento oficial" } as const;
 const STATUS_LABEL = { PENDING: "Esperando respuesta", ACTIVE: "En curso", FINISHED: "Terminado", CANCELLED: "Cancelado" } as const;
@@ -83,6 +84,10 @@ export default function ChallengeDetailScreen() {
     challenge.criterion === "HEAVIEST" ? formatWeight(score) : challenge.criterion === "LONGEST" ? formatLength(score) : String(Math.round(score));
   const isCreator = challenge.creator.id === user?.id;
   const open = challenge.status === "PENDING" || challenge.status === "ACTIVE";
+  // Mismas reglas que el backend: un reto entre amigos solo se cancela
+  // mientras nadie lo ha aceptado; un evento oficial, mientras dure.
+  const canCancel =
+    isCreator && (challenge.status === "PENDING" || (challenge.status === "ACTIVE" && challenge.kind === "EVENT"));
 
   return (
     <DexScreen title={KIND_LABEL[challenge.kind]} counter={STATUS_LABEL[challenge.status]} onBack={() => router.back()}>
@@ -150,7 +155,7 @@ export default function ChallengeDetailScreen() {
       {challenge.status === "ACTIVE" && challenge.my_status === "ACCEPTED" ? (
         <PrimaryButton label="Registrar captura" icon="plus" onPress={() => router.push("/catch/create")} />
       ) : null}
-      {isCreator && open ? (
+      {canCancel ? (
         <PrimaryButton
           label="Cancelar reto"
           variant="secondary"

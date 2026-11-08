@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { DexScreen } from "@/components/DexScreen";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { FriendPicker } from "@/components/FriendPicker";
@@ -16,6 +16,7 @@ import { createChallenge, createEvent, CRITERION_OPTIONS } from "@/services/chal
 import { getSpeciesCatalog } from "@/services/fishService";
 import { getFriends } from "@/services/friendService";
 import { ChallengeCriterion, FishCatalogEntry, User } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const DURATIONS = [1, 3, 7, 14, 30];
 

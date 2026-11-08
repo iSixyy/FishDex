@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "@/components/Avatar";
@@ -23,6 +23,7 @@ import { getFishDex } from "@/services/fishService";
 import { getMyProfile, updateShowcase } from "@/services/userService";
 import { formatElo, formatLength, formatWeight } from "@/utils/format";
 import { AchievementPublic, CapturePublic, UserProfile } from "@/types";
+import { Alert } from "@/utils/alert";
 
 const ACHIEVEMENTS_PREVIEW_COUNT = 8;
 const SHOWCASE_SIZE = 3;

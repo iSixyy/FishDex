@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -20,6 +20,7 @@ import { getChallenges } from "@/services/challengeService";
 import { getFriends, getPendingRequests, sendFriendRequest } from "@/services/friendService";
 import { formatDate, formatElo } from "@/utils/format";
 import { Challenge, FriendPublic } from "@/types";
+import { Alert } from "@/utils/alert";
 
 type Tab = "friends" | "community" | "challenges";
 
