@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.capture import Capture
 from app.models.challenge import (
@@ -196,18 +196,41 @@ def cancel(db: Session, user: User, challenge_id: int) -> None:
     challenge = get_visible_challenge_or_404(db, user, challenge_id)
     if challenge.creator_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo quien creó el reto puede cancelarlo")
-    if challenge.status == ChallengeStatus.FINISHED:
+    if challenge.status in (ChallengeStatus.FINISHED, ChallengeStatus.CANCELLED):
         raise HTTPException(status.HTTP_409_CONFLICT, "El reto ya ha terminado")
+    if challenge.status == ChallengeStatus.ACTIVE and challenge.kind != ChallengeKind.EVENT:
+        # Antes el creador podía anular un reto ya en marcha en cuanto iba
+        # perdiendo. Un reto entre amigos solo se cancela mientras nadie lo ha
+        # aceptado; los eventos oficiales los puede cancelar la administración.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "El reto ya ha empezado: no se puede cancelar hasta que termine"
+        )
     challenge.status = ChallengeStatus.CANCELLED
     db.commit()
+    others = [
+        p.user_id for p in challenge.participants
+        if p.user_id != user.id and p.status != ParticipantStatus.DECLINED
+    ]
+    notification_service.notify_users(
+        db, others, "Reto cancelado", f"{user.display_name} ha cancelado «{challenge.title}».",
+        {"type": "challenge_finished", "challenge_id": challenge.id},
+    )
 
 
 def list_for_user(db: Session, user: User) -> list[Challenge]:
+    # Retos en los que participo + eventos oficiales aún ACTIVOS. Antes salían
+    # TODOS los eventos que han existido, y para cada uno se calculaba la
+    # clasificación: la lista crecía sin fin y cada carga de Inicio la pedía.
+    my_challenge_ids = db.query(ChallengeParticipant.challenge_id).filter(ChallengeParticipant.user_id == user.id)
     challenges = (
         db.query(Challenge)
-        .outerjoin(ChallengeParticipant, ChallengeParticipant.challenge_id == Challenge.id)
-        .filter(or_(ChallengeParticipant.user_id == user.id, Challenge.kind == ChallengeKind.EVENT))
-        .distinct()
+        .options(selectinload(Challenge.participants).selectinload(ChallengeParticipant.user))
+        .filter(
+            or_(
+                Challenge.id.in_(my_challenge_ids),
+                (Challenge.kind == ChallengeKind.EVENT) & (Challenge.status == ChallengeStatus.ACTIVE),
+            )
+        )
         .order_by(Challenge.created_at.desc(), Challenge.id.desc())
         .all()
     )
@@ -247,18 +270,35 @@ def scores(db: Session, challenge: Challenge) -> list[tuple[User, float]]:
 
 def finalize_if_due(db: Session, challenge: Challenge) -> bool:
     """Cierra un reto activo cuya fecha de fin ya pasó: fija ganador (si hay
-    un único primero con puntuación > 0), notifica y revisa logros."""
+    un único primero con puntuación > 0), notifica y revisa logros.
+
+    Se llama desde las lecturas (lista y detalle) y desde la tarea periódica,
+    que puede correr a la vez en varios workers. El paso ACTIVE -> FINISHED se
+    hace con un UPDATE condicional: solo quien lo consigue notifica, así que
+    el aviso de "ha terminado" ya no se envía varias veces."""
     if challenge.status != ChallengeStatus.ACTIVE or challenge.ends_at is None or as_utc(challenge.ends_at) > _now():
         return False
     ranking = scores(db, challenge)
     winner = None
     if ranking and ranking[0][1] > 0 and (len(ranking) == 1 or ranking[0][1] > ranking[1][1]):
         winner = ranking[0][0]
-    challenge.status = ChallengeStatus.FINISHED
-    challenge.winner_id = winner.id if winner else None
+    claimed = (
+        db.query(Challenge)
+        .filter(Challenge.id == challenge.id, Challenge.status == ChallengeStatus.ACTIVE)
+        .update(
+            {Challenge.status: ChallengeStatus.FINISHED, Challenge.winner_id: winner.id if winner else None},
+            synchronize_session=False,
+        )
+    )
+    if not claimed:
+        # Otro proceso lo ha cerrado ya: nos quedamos con su resultado.
+        db.rollback()
+        db.refresh(challenge)
+        return False
     if winner is not None:
         achievement_service.evaluate_achievements(db, winner.id)
     db.commit()
+    db.refresh(challenge)
     participant_ids = [p.user_id for p in challenge.participants if p.status == ParticipantStatus.ACCEPTED]
     result = f"¡Ha ganado {winner.display_name}!" if winner else "Ha terminado en empate."
     notification_service.notify_users(
@@ -276,9 +316,22 @@ def run_scheduled(db: Session) -> None:
         if finalize_if_due(db, challenge):
             continue
         ends_at = as_utc(challenge.ends_at)
-        if ends_at and not challenge.ending_soon_notified and ends_at - now <= timedelta(hours=ENDING_SOON_HOURS):
-            challenge.ending_soon_notified = True
+        # En un reto de 1 día "le quedan menos de 24 h" desde el primer
+        # minuto: avisar entonces de "¡Último día!" no tiene sentido.
+        if (
+            ends_at
+            and challenge.duration_days > 1
+            and not challenge.ending_soon_notified
+            and ends_at - now <= timedelta(hours=ENDING_SOON_HOURS)
+        ):
+            claimed = (
+                db.query(Challenge)
+                .filter(Challenge.id == challenge.id, Challenge.ending_soon_notified.is_(False))
+                .update({Challenge.ending_soon_notified: True}, synchronize_session=False)
+            )
             db.commit()
+            if not claimed:
+                continue  # otro worker ya ha enviado el aviso
             participant_ids = [p.user_id for p in challenge.participants if p.status == ParticipantStatus.ACCEPTED]
             notification_service.notify_users(
                 db, participant_ids, "¡Último día!", f"«{challenge.title}» termina en menos de 24 horas.",

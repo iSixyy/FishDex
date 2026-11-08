@@ -22,16 +22,28 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(subject: int) -> str:
+def create_access_token(subject: int, token_version: int = 0) -> str:
+    """`ver` es la versión de sesión del usuario (`User.token_version`): al
+    cerrar sesión se incrementa y todos los tokens emitidos antes dejan de
+    valer, en vez de seguir funcionando hasta que caduquen (7 días)."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": str(subject), "exp": expire}
+    payload = {"sub": str(subject), "ver": token_version, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> int | None:
+def decode_token_claims(token: str) -> tuple[int, int] | None:
+    """(user_id, versión de sesión) de un token válido, o None. Los tokens
+    emitidos antes de existir `ver` cuentan como versión 0."""
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         user_id = payload.get("sub")
-        return int(user_id) if user_id is not None else None
-    except (JWTError, ValueError):
+        if user_id is None:
+            return None
+        return int(user_id), int(payload.get("ver", 0))
+    except (JWTError, ValueError, TypeError):
         return None
+
+
+def decode_access_token(token: str) -> int | None:
+    claims = decode_token_claims(token)
+    return claims[0] if claims else None

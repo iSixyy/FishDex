@@ -1,12 +1,14 @@
 """Cálculo de ELO en servidor. El cliente NUNCA envía ni decide el ELO:
 todo se recalcula aquí a partir de datos verificables en la base de datos."""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from app.core.game_config import (
     EXCEPTIONAL_SIZE_BONUS_ELO,
     EXCEPTIONAL_SIZE_THRESHOLD_RATIO,
+    GAME_TIMEZONE,
     MAX_ELO_REWARDING_CAPTURES_PER_SPECIES_PER_DAY,
     PERSONAL_RECORD_BONUS_ELO,
     RARITY_BASE_ELO,
@@ -31,20 +33,49 @@ class EloBreakdown:
         return self.base + self.record_bonus + self.size_bonus
 
 
-def _daily_rewarding_captures_count(db: Session, user_id: int, species_id: int, server_now: datetime) -> int:
-    """Cuenta las capturas de hoy que ya dieron ELO, usando SIEMPRE la hora del
-    servidor (`server_now`) y `Capture.created_at` (fecha de inserción en BD),
-    nunca `captured_at`, que lo manda el cliente y podría manipularse para
-    saltarse el límite anti-farmeo."""
-    day_start = server_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
+_GAME_TZ = ZoneInfo(GAME_TIMEZONE)
+
+
+def _as_utc(moment: datetime | None) -> datetime:
+    """SQLite devuelve los datetimes sin zona (guardados ya en UTC)."""
+    if moment is None:
+        return datetime.now(timezone.utc)
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def fishing_day(moment: datetime) -> date:
+    """Día de pesca (hora peninsular) al que pertenece un instante."""
+    return _as_utc(moment).astimezone(_GAME_TZ).date()
+
+
+def _fishing_day_bounds_utc(day: date) -> tuple[datetime, datetime]:
+    """[inicio, fin) de un día de pesca, en UTC y sin zona (como en SQLite)."""
+    start = datetime.combine(day, datetime.min.time(), tzinfo=_GAME_TZ)
+    end = datetime.combine(day + timedelta(days=1), datetime.min.time(), tzinfo=_GAME_TZ)
+    return (
+        start.astimezone(timezone.utc).replace(tzinfo=None),
+        end.astimezone(timezone.utc).replace(tzinfo=None),
+    )
+
+
+def _daily_rewarding_captures_count(db: Session, user_id: int, species_id: int, captured_at: datetime) -> int:
+    """Capturas de esa especie que ya dieron ELO el MISMO día de pesca.
+
+    Se cuenta por `captured_at` (cuándo se pescó), no por `created_at` (cuándo
+    llegó al servidor): antes, quien pescaba sin cobertura varios días y
+    sincronizaba todo de golpe veía cómo el límite de 3 al día se aplicaba a
+    todas sus capturas juntas y perdía el ELO de los demás días. Falsear
+    `captured_at` no permite gran cosa: el esquema solo admite fechas pasadas
+    de como mucho `MAX_CAPTURED_AT_AGE_DAYS` días y las capturas repetidas
+    dan una fracción mínima del ELO base."""
+    start, end = _fishing_day_bounds_utc(fishing_day(captured_at))
     return (
         db.query(Capture)
         .filter(
             Capture.user_id == user_id,
             Capture.fish_species_id == species_id,
-            Capture.created_at >= day_start,
-            Capture.created_at < day_end,
+            Capture.captured_at >= start,
+            Capture.captured_at < end,
             Capture.elo_earned > 0,
         )
         .count()
@@ -60,17 +91,14 @@ def calculate_capture_elo(
     length_cm: float,
     is_new_species: bool,
     is_personal_record: bool,
-    captured_at: datetime,  # informativo: no se usa para el límite anti-farmeo (ver más abajo)
+    captured_at: datetime,  # define el día de pesca del límite anti-farmeo
 ) -> EloBreakdown:
     breakdown = EloBreakdown()
     rarity = Rarity(species.rarity)
     base_elo = RARITY_BASE_ELO[rarity]
 
     if MAX_ELO_REWARDING_CAPTURES_PER_SPECIES_PER_DAY > 0:
-        # El límite diario se cuenta con la hora del SERVIDOR, no con `captured_at`
-        # (que manda el cliente y podría falsearse para saltarse el anti-farmeo).
-        server_now = datetime.now(timezone.utc)
-        already_today = _daily_rewarding_captures_count(db, user_id, species.id, server_now)
+        already_today = _daily_rewarding_captures_count(db, user_id, species.id, captured_at)
         if already_today >= MAX_ELO_REWARDING_CAPTURES_PER_SPECIES_PER_DAY:
             breakdown.capped_by_daily_limit = True
             return breakdown  # 0 ELO: límite diario anti-farmeo alcanzado
@@ -93,13 +121,6 @@ def calculate_capture_elo(
 
 def rank_name_for_elo(elo: int) -> str:
     return get_rank_for_elo(elo)["name"]
-
-
-def _as_utc(moment: datetime | None) -> datetime:
-    """SQLite devuelve los datetimes sin zona (guardados ya en UTC)."""
-    if moment is None:
-        return datetime.now(timezone.utc)
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
 def recalculate_user_elo(db: Session, user_id: int) -> int:
@@ -134,7 +155,7 @@ def recalculate_user_elo(db: Session, user_id: int) -> int:
         is_new = previous is None
         record_weight = is_new or capture.weight_kg > previous[0]
         record_length = is_new or capture.length_cm > previous[1]
-        day_key = (species.id, _as_utc(capture.created_at).date())
+        day_key = (species.id, fishing_day(capture.captured_at))
 
         breakdown = EloBreakdown()
         if (

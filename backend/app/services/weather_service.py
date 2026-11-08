@@ -18,8 +18,21 @@ from app.config import get_settings
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 CACHE_TTL_SECONDS = 15 * 60
+# Tope de entradas: la clave es la coordenada redondeada, así que sin límite
+# la caché crecía con cada punto distinto consultado y nunca se vaciaba.
+CACHE_MAX_ENTRIES = 2000
 
 _cache: dict[tuple[float, float], tuple[float, dict]] = {}
+
+
+def _store_in_cache(key: tuple[float, float], result: dict) -> None:
+    now = time.monotonic()
+    if len(_cache) >= CACHE_MAX_ENTRIES:
+        for stale_key in [k for k, (at, _) in _cache.items() if now - at >= CACHE_TTL_SECONDS]:
+            _cache.pop(stale_key, None)
+        while len(_cache) >= CACHE_MAX_ENTRIES:
+            _cache.pop(next(iter(_cache)))  # la más antigua (orden de inserción)
+    _cache[key] = (now, result)
 
 # Luna nueva de referencia (6 ene 2000, 18:14 UTC) y mes sinódico medio.
 _REFERENCE_NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
@@ -135,5 +148,5 @@ def get_conditions(latitude: float, longitude: float) -> dict | None:
         "tides": _tides(hourly.get("time", []), hourly.get("sea_level_height_msl", [])),
         "moon": moon_phase(),
     }
-    _cache[key] = (time.monotonic(), result)
+    _store_in_cache(key, result)
     return result

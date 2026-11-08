@@ -16,6 +16,14 @@ settings = get_settings()
 MAX_ORIGINAL_DIMENSION = 1600
 THUMBNAIL_DIMENSION = 300
 JPEG_QUALITY = 82
+# Píxeles máximos de una foto de entrada (~40 Mpx, más que cualquier móvil).
+# Pillow solo AVISA entre ~89 y ~179 Mpx y decodifica igualmente (cientos de
+# MB de RAM por petición); se corta antes de decodificar.
+MAX_INPUT_PIXELS = 40_000_000
+
+
+class ImageTooLargeError(OSError):
+    """Dimensiones excesivas: el llamador lo traduce a un 400."""
 
 
 def _storage_paths() -> tuple[Path, Path]:
@@ -36,6 +44,9 @@ def save_capture_image(raw_bytes: bytes) -> tuple[str, str]:
     file_id = uuid.uuid4().hex
 
     image = Image.open(io.BytesIO(raw_bytes))
+    width, height = image.size  # se lee de la cabecera, sin decodificar
+    if width * height > MAX_INPUT_PIXELS:
+        raise ImageTooLargeError(f"Imagen demasiado grande: {width}x{height}")
     image.load()  # fuerza la decodificación completa para detectar ficheros corruptos ya aquí
     image = ImageOps.exif_transpose(image)  # respeta la orientación del móvil
     if image.mode != "RGB":

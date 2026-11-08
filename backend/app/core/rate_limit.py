@@ -3,8 +3,34 @@
 `@limiter.limit(...)`)."""
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from starlette.requests import Request
 
 from app.config import get_settings
+from app.core.security import decode_access_token
+
+
+def client_ip(request: Request) -> str:
+    """IP del cliente. Detrás de un proxy inverso todas las peticiones traen
+    la IP del proxy: con `TRUST_PROXY_HEADERS=true` se usa la primera IP de
+    `X-Forwarded-For` (solo si el proxy la sobrescribe, si no es falsificable)."""
+    if get_settings().trust_proxy_headers:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    return get_remote_address(request)
+
+
+def user_or_ip(request: Request) -> str:
+    """Clave por usuario autenticado (o por IP si no hay token válido). Para
+    límites de rutas con sesión: muchos usuarios móviles comparten IP (CGNAT),
+    así que limitar por IP castigaría a gente que no tiene nada que ver."""
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        user_id = decode_access_token(auth[7:].strip())
+        if user_id is not None:
+            return f"user:{user_id}"
+    return f"ip:{client_ip(request)}"
 
 
 class _ConfigAwareLimiter(Limiter):
@@ -32,4 +58,4 @@ class _ConfigAwareLimiter(Limiter):
         pass
 
 
-limiter = _ConfigAwareLimiter(key_func=get_remote_address, enabled=get_settings().rate_limit_enabled)
+limiter = _ConfigAwareLimiter(key_func=client_ip, enabled=get_settings().rate_limit_enabled)

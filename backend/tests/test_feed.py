@@ -131,24 +131,32 @@ def test_comment_is_created_and_shows_up_in_list_and_feed_count(client, db_sessi
     assert entry["comment_count"] == 1
 
 
-def test_only_comment_author_can_delete_it(client, db_session):
+def test_comment_can_be_deleted_by_author_or_capture_owner_only(client, db_session):
     headers_a, _ = register_and_login(client, username="karla", email="karla@example.com")
     headers_b, _ = register_and_login(client, username="leo", email="leo@example.com")
-    req = client.post("/friends/request", json={"to_username": "leo"}, headers=headers_a)
-    client.post(f"/friends/accept/{req.json()['id']}", headers=headers_b)
+    headers_c, _ = register_and_login(client, username="mara", email="mara@example.com")
+    for headers_from, username in ((headers_a, "leo"), (headers_c, "leo")):
+        req = client.post("/friends/request", json={"to_username": username}, headers=headers_from)
+        client.post(f"/friends/accept/{req.json()['id']}", headers=headers_b)
 
     species = _lubina_species(db_session)
-    capture = _register_capture(client, headers_b, species.id)
-    capture_id = capture["id"]
+    capture_id = _register_capture(client, headers_b, species.id)["id"]
 
-    created = client.post(f"/captures/{capture_id}/comments", json={"text": "Bonita captura"}, headers=headers_a)
-    comment_id = created.json()["id"]
+    first = client.post(f"/captures/{capture_id}/comments", json={"text": "Bonita captura"}, headers=headers_a).json()
+    second = client.post(f"/captures/{capture_id}/comments", json={"text": "Spam"}, headers=headers_a).json()
 
-    forbidden = client.delete(f"/comments/{comment_id}", headers=headers_b)
-    assert forbidden.status_code == 403
-
-    allowed = client.delete(f"/comments/{comment_id}", headers=headers_a)
-    assert allowed.status_code == 204
+    # Un tercero (amigo del dueño, pero ni autor ni dueño de la captura) no puede.
+    assert client.delete(f"/comments/{first['id']}", headers=headers_c).status_code == 403
+    # El autor sí, y el dueño de la captura también (moderación).
+    assert client.delete(f"/comments/{first['id']}", headers=headers_a).status_code == 204
+    assert client.delete(f"/comments/{second['id']}", headers=headers_b).status_code == 204
 
     comments = client.get(f"/captures/{capture_id}/comments", headers=headers_a)
     assert len(comments.json()) == 0
+
+
+def test_blank_comment_is_rejected(client, db_session):
+    headers, _ = register_and_login(client)
+    capture_id = _register_capture(client, headers, _lubina_species(db_session).id)["id"]
+    response = client.post(f"/captures/{capture_id}/comments", json={"text": "    "}, headers=headers)
+    assert response.status_code == 422

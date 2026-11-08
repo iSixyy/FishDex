@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -50,5 +51,9 @@ class FishSpecies(Base):
     # una trucha es igual de rara para todos los usuarios.
     catch_difficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)
     origin: Mapped[str] = mapped_column(String(10), default=SpeciesOrigin.SEED, nullable=False)
+    # Quién y cuándo la dio de alta la IA (None en las del catálogo semilla).
+    # Sirve para limitar cuántas especies nuevas añade cada usuario al día.
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, server_default=func.now())
 
     regulations: Mapped[list["Regulation"]] = relationship(back_populates="species", cascade="all, delete-orphan")

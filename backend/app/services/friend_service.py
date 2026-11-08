@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
@@ -13,6 +13,10 @@ from app.models.user import User
 from app.services import achievement_service, notification_service
 
 RARE_PLUS = {Rarity.RARE, Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC}
+
+# Tras un rechazo, el mismo remitente debe esperar antes de volver a pedir
+# amistad: sin esto podía reenviar al instante, con un aviso push cada vez.
+REJECTED_REQUEST_COOLDOWN = timedelta(days=7)
 LEGENDARY_PLUS = {Rarity.LEGENDARY, Rarity.MYTHIC}
 
 
@@ -26,7 +30,8 @@ def _are_friends(db: Session, user_id: int, other_id: int) -> bool:
 
 
 def send_friend_request(db: Session, from_user: User, to_username: str) -> FriendRequest:
-    to_user = db.query(User).filter(User.username == to_username).first()
+    # Sin distinguir mayúsculas: "Pepe" encuentra a "pepe".
+    to_user = db.query(User).filter(func.lower(User.username) == to_username.strip().lower()).first()
     if to_user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
     if to_user.id == from_user.id:
@@ -34,13 +39,26 @@ def send_friend_request(db: Session, from_user: User, to_username: str) -> Frien
     if _are_friends(db, from_user.id, to_user.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "Ya sois amigos")
 
+    # Si el otro ya me había pedido amistad, pedírsela yo equivale a aceptar.
+    incoming = (
+        db.query(FriendRequest)
+        .filter(
+            FriendRequest.from_user_id == to_user.id,
+            FriendRequest.to_user_id == from_user.id,
+            FriendRequest.status == FriendRequestStatus.PENDING,
+        )
+        .first()
+    )
+    if incoming is not None:
+        accept_friend_request(db, from_user, incoming.id)
+        db.refresh(incoming)
+        return incoming
+
     existing = (
         db.query(FriendRequest)
         .filter(
-            or_(
-                (FriendRequest.from_user_id == from_user.id) & (FriendRequest.to_user_id == to_user.id),
-                (FriendRequest.from_user_id == to_user.id) & (FriendRequest.to_user_id == from_user.id),
-            ),
+            FriendRequest.from_user_id == from_user.id,
+            FriendRequest.to_user_id == to_user.id,
             FriendRequest.status == FriendRequestStatus.PENDING,
         )
         .first()
@@ -61,6 +79,15 @@ def send_friend_request(db: Session, from_user: User, to_username: str) -> Frien
         request = FriendRequest(from_user_id=from_user.id, to_user_id=to_user.id)
         db.add(request)
     else:
+        if request.status == FriendRequestStatus.REJECTED:
+            sent_at = request.created_at
+            if sent_at is not None and sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            if sent_at is not None and datetime.now(timezone.utc) - sent_at < REJECTED_REQUEST_COOLDOWN:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Esa persona rechazó tu solicitud hace poco. Espera unos días para volver a intentarlo.",
+                )
         request.status = FriendRequestStatus.PENDING
         request.created_at = datetime.now(timezone.utc)
     try:
@@ -108,8 +135,14 @@ def accept_friend_request(db: Session, current_user: User, request_id: int) -> N
     except IntegrityError:
         # Ya se había aceptado (y creado la amistad) desde una petición
         # concurrente: el estado final deseado ya existe, así que se trata
-        # como no-op idempotente en vez de un error.
+        # como no-op idempotente en vez de un error. El rollback también
+        # deshace el cambio de estado de la solicitud: se vuelve a marcar como
+        # aceptada para que no se quede para siempre en "pendientes".
         db.rollback()
+        db.query(FriendRequest).filter(
+            FriendRequest.id == request_id, FriendRequest.status == FriendRequestStatus.PENDING
+        ).update({FriendRequest.status: FriendRequestStatus.ACCEPTED}, synchronize_session=False)
+        db.commit()
         return
     notification_service.notify_users(
         db, [request.from_user_id], "Solicitud aceptada",

@@ -14,5 +14,7 @@ Pillow==12.3.0
 httpx==0.28.1
 python-dotenv==1.2.3
 slowapi==0.1.10
+# Zonas horarias (Europe/Madrid) para `zoneinfo`: Windows no trae base de datos propia.
+tzdata==2026.6
 pytest==9.1.1
 pytest-cov==7.1.0

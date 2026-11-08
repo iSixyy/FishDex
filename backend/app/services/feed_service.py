@@ -1,7 +1,7 @@
 """Construye el feed de comunidad: capturas propias + de amigos, con dos
 posibles vistas (`friends`: más recientes; `highlights`: destacadas)."""
 from sqlalchemy import case, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.core.game_config import Rarity
 from app.models.capture import Capture
@@ -44,16 +44,24 @@ def _visible_user_ids(db: Session, user_id: int) -> list[int]:
 def get_feed(db: Session, user: User, scope: str, limit: int, offset: int) -> list[FeedEntry]:
     visible_ids = _visible_user_ids(db, user.id)
 
+    # Autor y especie se cargan en la misma consulta: antes cada entrada de la
+    # página disparaba 2 consultas más (N+1) al leer `c.user` y `c.species`.
     query = (
         db.query(Capture)
         .join(FishSpecies, FishSpecies.id == Capture.fish_species_id)
+        .options(contains_eager(Capture.species), joinedload(Capture.user))
         .filter(Capture.user_id.in_(visible_ids))
     )
 
+    # `Capture.id` desempata capturas con el mismo `captured_at`: sin él el
+    # orden no está definido y la paginación por offset repetía u omitía
+    # entradas entre páginas.
     if scope == "highlights":
-        query = query.order_by(_IS_HIGHLIGHT.desc(), _RARITY_RANK.desc(), Capture.captured_at.desc())
+        query = query.order_by(
+            _IS_HIGHLIGHT.desc(), _RARITY_RANK.desc(), Capture.captured_at.desc(), Capture.id.desc()
+        )
     else:
-        query = query.order_by(Capture.captured_at.desc())
+        query = query.order_by(Capture.captured_at.desc(), Capture.id.desc())
 
     captures = query.limit(limit).offset(offset).all()
     return _to_feed_entries(db, user, captures)

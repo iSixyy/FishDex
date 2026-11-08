@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import limiter, user_or_ip
 from app.database import get_db
 from app.models.capture import Capture
 from app.models.user import User
@@ -22,8 +23,14 @@ from app.services.capture_service import (
 router = APIRouter(prefix="/captures", tags=["captures"])
 
 
+# Límite por usuario: los logros por número de capturas (o con foto) nunca se
+# retiran, así que sin límite bastaba con crear y borrar capturas en bucle
+# para desbloquearlos. Es holgado para pescar de verdad; la cola offline trata
+# el 429 como reintentable y termina de subir lo pendiente más tarde.
 @router.post("", response_model=CaptureResult, status_code=201)
+@limiter.limit("60/hour;300/day", key_func=user_or_ip)
 async def register_capture(
+    request: Request,
     fish_species_id: int = Form(...),
     weight_kg: float = Form(...),
     length_cm: float = Form(...),

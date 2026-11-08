@@ -31,10 +31,8 @@ def register_device(db: Session, user_id: int, token: str, platform: str | None)
     db.commit()
 
 
-def unregister_device(db: Session, user_id: int, token: str) -> None:
-    db.query(DeviceToken).filter(DeviceToken.token == token, DeviceToken.user_id == user_id).delete(
-        synchronize_session=False
-    )
+def unregister_device(db: Session, token: str) -> None:
+    db.query(DeviceToken).filter(DeviceToken.token == token).delete(synchronize_session=False)
     db.commit()
 
 

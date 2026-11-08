@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     admin_usernames: str = ""
 
     rate_limit_enabled: bool = True
+    # Detrás de un proxy inverso (nginx, Caddy, un balanceador...) todas las
+    # peticiones llegan con la IP del proxy y el rate limit por IP se vuelve
+    # global. Con esto a `true` se usa la primera IP de `X-Forwarded-For`.
+    # Actívalo SOLO si el proxy sobrescribe esa cabecera (si no, se falsea).
+    trust_proxy_headers: bool = False
     # Tarea periódica que cierra retos vencidos y envía avisos.
     scheduler_enabled: bool = True
 

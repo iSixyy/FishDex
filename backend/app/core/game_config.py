@@ -136,4 +136,35 @@ def rarity_for_catch_difficulty(difficulty: int) -> Rarity:
 
 # Confianza mínima (0-1) de la IA para dar de alta una especie NUEVA en el
 # catálogo compartido. Por debajo, solo se sugiere si ya existe.
-AI_MIN_CONFIDENCE_TO_CREATE_SPECIES = 0.6
+AI_MIN_CONFIDENCE_TO_CREATE_SPECIES = 0.75
+
+# Techo de rareza para las especies que da de alta la IA. La dificultad la
+# puntúa el propio modelo a partir de una foto que sube cualquier usuario: sin
+# techo, bastaba con fotos "difíciles" para crear especies MÍTICAS (120 ELO
+# cada una) y farmear ELO y logros. Un administrador puede subirla a mano.
+AI_SPECIES_MAX_RARITY = Rarity.RARE
+
+# Especies nuevas que un mismo usuario puede añadir al catálogo común por día.
+AI_MAX_NEW_SPECIES_PER_USER_PER_DAY = 3
+
+
+def cap_rarity(rarity: Rarity, ceiling: Rarity) -> Rarity:
+    """Devuelve `rarity` sin superar `ceiling` (según el orden de `Rarity`)."""
+    order = list(Rarity)
+    return order[min(order.index(rarity), order.index(ceiling))]
+
+
+# --- Plausibilidad de las medidas ---
+# Una captura no puede superar este múltiplo del máximo habitual de su especie.
+# Holgado a propósito (los récords reales superan el "máximo habitual"), pero
+# impide registrar una trucha de 500 kg para ganar retos, rankings y logros.
+MAX_PLAUSIBLE_WEIGHT_FACTOR = 3.0
+MAX_PLAUSIBLE_LENGTH_FACTOR = 1.6
+
+# Zona horaria del "día de pesca" (límite diario anti-farmeo, normativa).
+GAME_TIMEZONE = "Europe/Madrid"
+
+# La instantánea de clima/mar se toma de las condiciones ACTUALES: solo tiene
+# sentido si la captura es reciente. Una captura offline que se sube días
+# después no debe guardar el tiempo del momento de la sincronización.
+WEATHER_SNAPSHOT_MAX_AGE_HOURS = 3

@@ -2,6 +2,7 @@
 detecta récords personales, guarda la imagen, comprueba logros y elige la
 frase de celebración. Es el corazón de la Fase 4/5/10 del proyecto."""
 import json
+from datetime import datetime, timedelta, timezone
 
 from PIL import Image, UnidentifiedImageError
 from fastapi import HTTPException, UploadFile, status
@@ -9,7 +10,13 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.game_config import (
+    MAX_PLAUSIBLE_LENGTH_FACTOR,
+    MAX_PLAUSIBLE_WEIGHT_FACTOR,
+    WEATHER_SNAPSHOT_MAX_AGE_HOURS,
+)
 from app.models.capture import Capture
+from app.models.challenge import Challenge, ChallengeParticipant, ChallengeStatus, ParticipantStatus
 from app.models.elo_history import EloHistory
 from app.models.fish_species import FishSpecies
 from app.models.friend import Friend
@@ -63,6 +70,51 @@ def _get_species_or_404(db: Session, species_id: int) -> FishSpecies:
     if species is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Especie no encontrada")
     return species
+
+
+def _check_plausible_measures(species: FishSpecies, weight_kg: float, length_cm: float) -> None:
+    """Rechaza medidas imposibles para la especie. El peso y la longitud los
+    escribe el usuario: sin este control una "trucha de 500 kg" ganaba retos
+    de pieza más pesada, el ranking por especie, el bonus de tamaño y logros."""
+    max_weight = species.max_weight_kg * MAX_PLAUSIBLE_WEIGHT_FACTOR
+    max_length = species.approx_max_length_cm * MAX_PLAUSIBLE_LENGTH_FACTOR
+    if weight_kg > max_weight:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"{weight_kg:g} kg no es un peso realista para {species.name} (máximo admitido: {max_weight:g} kg).",
+        )
+    if length_cm > max_length:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"{length_cm:g} cm no es una longitud realista para {species.name} (máximo admitido: {max_length:g} cm).",
+        )
+
+
+def _counts_in_a_challenge(db: Session, capture: Capture) -> bool:
+    """True si la captura puntúa en algún reto activo o terminado del usuario
+    (misma ventana y, si el reto es de una especie, la misma especie)."""
+    from app.services.challenge_service import as_utc
+
+    rows = (
+        db.query(Challenge)
+        .join(ChallengeParticipant, ChallengeParticipant.challenge_id == Challenge.id)
+        .filter(
+            ChallengeParticipant.user_id == capture.user_id,
+            ChallengeParticipant.status == ParticipantStatus.ACCEPTED,
+            Challenge.status.in_([ChallengeStatus.ACTIVE, ChallengeStatus.FINISHED]),
+            Challenge.starts_at.isnot(None),
+        )
+        .all()
+    )
+    captured = as_utc(capture.captured_at)
+    created = as_utc(capture.created_at)
+    for challenge in rows:
+        start, end = as_utc(challenge.starts_at).replace(microsecond=0), as_utc(challenge.ends_at)
+        if challenge.fish_species_id is not None and challenge.fish_species_id != capture.fish_species_id:
+            continue
+        if start <= captured <= end and created is not None and start <= created <= end:
+            return True
+    return False
 
 
 def _personal_best(db: Session, user_id: int, species_id: int) -> tuple[float | None, float | None]:
@@ -156,6 +208,7 @@ def create_capture(db: Session, user: User, payload: CaptureCreate, raw_image: b
         return _existing_capture_result(db, user, existing)
 
     species = _get_species_or_404(db, payload.fish_species_id)
+    _check_plausible_measures(species, payload.weight_kg, payload.length_cm)
 
     was_discovered_before = (
         db.query(Capture)
@@ -170,15 +223,19 @@ def create_capture(db: Session, user: User, payload: CaptureCreate, raw_image: b
     is_record_length = previous_length is None or payload.length_cm > previous_length
     is_personal_record = is_record_weight or is_record_length
 
+    # Instantánea de clima/mar/luna (mejor esfuerzo, timeout corto). Se pide
+    # antes de abrir la escritura para no alargar la transacción, y antes de
+    # guardar la foto para no dejarla huérfana si algo falla aquí. Son las
+    # condiciones ACTUALES: solo se guardan si la captura es reciente (una
+    # captura offline subida días después no debe llevar el tiempo de hoy).
+    conditions = None
+    is_recent = datetime.now(timezone.utc) - payload.captured_at <= timedelta(hours=WEATHER_SNAPSHOT_MAX_AGE_HOURS)
+    if is_recent and payload.latitude is not None and payload.longitude is not None:
+        conditions = weather_service.get_conditions(payload.latitude, payload.longitude)
+
     image_path, thumb_path = None, None
     if raw_image:
         image_path, thumb_path = _save_capture_image_or_400(raw_image)
-
-    # Instantánea de clima/mar/luna (mejor esfuerzo, timeout corto). Se pide
-    # antes de abrir la escritura para no alargar la transacción.
-    conditions = None
-    if payload.latitude is not None and payload.longitude is not None:
-        conditions = weather_service.get_conditions(payload.latitude, payload.longitude)
 
     try:
         location_name, autonomous_community = resolve_location_name(db, payload.latitude, payload.longitude)
@@ -325,8 +382,27 @@ def update_capture(db: Session, user: User, capture_id: int, patch: CaptureUpdat
     historial del usuario (ver `recalculate_user_elo`)."""
     capture = _get_own_capture_or_404(db, user, capture_id)
     changes = patch.model_dump(exclude_unset=True)
+    changes_measures = any(
+        field in changes and changes[field] != getattr(capture, field)
+        for field in ("fish_species_id", "weight_kg", "length_cm")
+    )
+    if changes_measures and _counts_in_a_challenge(db, capture):
+        # Si no, se podía "engordar" una captura a mitad de un reto (o ya
+        # terminado) para darle la vuelta a la clasificación.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Esta captura cuenta en un reto: no se pueden cambiar su especie ni sus medidas.",
+        )
+    species = capture.species
     if "fish_species_id" in changes:
-        capture.fish_species_id = _get_species_or_404(db, changes.pop("fish_species_id")).id
+        species = _get_species_or_404(db, changes.pop("fish_species_id"))
+        capture.fish_species_id = species.id
+    if changes_measures:
+        # Solo si cambian: el móvil reenvía siempre peso y longitud, y una
+        # captura antigua con medidas ya guardadas debe poder corregir el cebo.
+        _check_plausible_measures(
+            species, changes.get("weight_kg", capture.weight_kg), changes.get("length_cm", capture.length_cm)
+        )
     for field, value in changes.items():
         setattr(capture, field, value)
     db.flush()

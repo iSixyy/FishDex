@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, StringConstraints
 
 from app.schemas.types import UtcDateTime
 from app.schemas.user import UserPublic
 
 
 class CommentCreate(BaseModel):
-    text: str = Field(min_length=1, max_length=500)
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
 class CommentPublic(BaseModel):

@@ -1,6 +1,8 @@
 """Esquemas de las funcionalidades nuevas: IA, spots, retos, rankings
 ampliados, dispositivos y normativa."""
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.models.challenge import ChallengeCriterion
 from app.schemas.fish import FishCatalogEntry
@@ -23,22 +25,31 @@ class AIIdentifyResponse(BaseModel):
     catch_difficulty: int | None = None
 
 
+# Texto sin espacios sobrantes: "   " ya no pasa como nombre/título válido.
+def _clean_text(min_length: int, max_length: int):
+    return Annotated[str, StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)]
+
+
 # --- Dispositivos ---
 class DeviceRegister(BaseModel):
     token: str = Field(min_length=10, max_length=255)
     platform: str | None = Field(default=None, max_length=20)
 
 
+class DeviceUnregister(BaseModel):
+    token: str = Field(min_length=10, max_length=255)
+
+
 # --- Spots ---
 class SpotCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
+    name: _clean_text(1, 80)
     notes: str | None = Field(default=None, max_length=2000)
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
 
 
 class SpotUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=80)
+    name: _clean_text(1, 80) | None = None
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -83,9 +94,17 @@ class ChallengeCreate(_ChallengeRules):
     friend_ids: list[int] = Field(min_length=1, max_length=30)
     title: str | None = Field(default=None, max_length=80)
 
+    @field_validator("title")
+    @classmethod
+    def blank_title_is_default(cls, value: str | None) -> str | None:
+        # Un título de solo espacios equivale a no poner título (se usa el de
+        # por defecto) en vez de guardarse vacío.
+        value = (value or "").strip()
+        return value or None
+
 
 class EventCreate(_ChallengeRules):
-    title: str = Field(min_length=3, max_length=80)
+    title: _clean_text(3, 80)
 
 
 class ChallengeResponse(BaseModel):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import DateTime, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -25,6 +25,9 @@ class User(Base):
     # Hasta 3 códigos de logro elegidos para la vitrina del perfil, separados
     # por coma. Vacío = se muestran los de mayor nivel automáticamente.
     featured_badges: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Versión de sesión: va en cada JWT y se incrementa al cerrar sesión, lo
+    # que invalida todos los tokens emitidos antes.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     captures: Mapped[list["Capture"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -37,3 +40,11 @@ class User(Base):
         from app.config import get_settings
 
         return self.username.lower() in get_settings().admin_username_set
+
+
+# Unicidad SIN distinguir mayúsculas: con la restricción normal "Samuel" y
+# "samuel" eran usuarios distintos, y como `is_admin` compara en minúsculas
+# cualquiera podía registrar una variante del nombre de un administrador y
+# heredar sus permisos. Los nombres deben coincidir con `run_light_migrations`.
+Index("uq_users_username_ci", func.lower(User.username), unique=True)
+Index("uq_users_email_ci", func.lower(User.email), unique=True)

@@ -78,7 +78,13 @@ def delete_comment(db: Session, current_user: User, comment_id: int) -> None:
     if comment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Comentario no encontrado")
     if comment.user_id != current_user.id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo puedes borrar tus propios comentarios")
+        # El dueño de la captura también puede moderar los comentarios que le
+        # dejan en ella (antes solo podía borrarlos su autor).
+        capture_owner = db.query(Capture.user_id).filter(Capture.id == comment.capture_id).scalar()
+        if capture_owner != current_user.id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, "Solo puedes borrar tus comentarios o los de tus capturas"
+            )
 
     db.delete(comment)
     db.commit()

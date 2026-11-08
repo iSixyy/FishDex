@@ -73,7 +73,7 @@ def test_new_species_gets_fixed_rarity_from_catch_difficulty(client, vision):
 
     first = _upload(client, headers_a).json()
     assert first["species_is_new_in_catalog"] is True
-    assert first["species"]["rarity"] == "LEGENDARY"
+    assert first["species"]["rarity"] == "RARE"  # dificultad 9, limitada por AI_SPECIES_MAX_RARITY
     assert first["species"]["origin"] == "AI"
 
     # Otro usuario, aunque la IA puntúe distinto esta vez, ve la MISMA especie y rareza.
@@ -81,7 +81,7 @@ def test_new_species_gets_fixed_rarity_from_catch_difficulty(client, vision):
     second = _upload(client, headers_b).json()
     assert second["species_is_new_in_catalog"] is False
     assert second["species"]["id"] == first["species"]["id"]
-    assert second["species"]["rarity"] == "LEGENDARY"
+    assert second["species"]["rarity"] == "RARE"
 
 
 def test_low_confidence_unknown_species_is_not_added(client, vision):

@@ -101,8 +101,14 @@ def add_photo(db: Session, user: User, spot_id: int, raw: bytes) -> Spot:
     from app.services.capture_service import _save_capture_image_or_400
 
     image_path, thumb_path = _save_capture_image_or_400(raw)
-    spot.photos.append(SpotPhoto(image_path=image_path, thumbnail_path=thumb_path))
-    db.commit()
+    try:
+        spot.photos.append(SpotPhoto(image_path=image_path, thumbnail_path=thumb_path))
+        db.commit()
+    except Exception:
+        # Sin esto, un fallo al guardar dejaba la foto huérfana en `storage/`.
+        db.rollback()
+        delete_capture_image(image_path, thumb_path)
+        raise
     db.refresh(spot)
     return spot
 

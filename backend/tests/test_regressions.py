@@ -1,5 +1,5 @@
 """Regresiones de los errores corregidos en la revisión de arquitectura."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from tests.conftest import register_and_login
 from tests.test_captures import _capture_form, _lubina_species
@@ -12,14 +12,24 @@ def _befriend(client, headers_a, headers_b, username_b):
     return req.json()["id"]
 
 
-def test_can_resend_friend_request_after_rejection(client):
+def test_can_resend_friend_request_after_rejection_cooldown(client, db_session):
+    from app.models.friend import FriendRequest
+
     headers_a, _ = register_and_login(client, username="marta", email="marta@example.com")
     headers_b, _ = register_and_login(client, username="nico", email="nico@example.com")
 
     first = client.post("/friends/request", json={"to_username": "nico"}, headers=headers_a)
     client.post(f"/friends/reject/{first.json()['id']}", headers=headers_b)
 
-    again = client.post("/friends/request", json={"to_username": "nico"}, headers=headers_a)
+    # Reenviar al instante (spam de avisos) no se permite...
+    too_soon = client.post("/friends/request", json={"to_username": "nico"}, headers=headers_a)
+    assert too_soon.status_code == 409
+
+    # ...pero pasada la espera, sí.
+    request = db_session.get(FriendRequest, first.json()["id"])
+    request.created_at = datetime.now(timezone.utc) - timedelta(days=8)
+    db_session.commit()
+    again = client.post("/friends/request", json={"to_username": "NICO"}, headers=headers_a)
     assert again.status_code == 201, again.text
     pending = client.get("/friends/requests", headers=headers_b).json()
     assert [r["id"] for r in pending] == [again.json()["id"]]
