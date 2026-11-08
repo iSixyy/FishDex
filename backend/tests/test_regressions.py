@@ -27,7 +27,7 @@ def test_can_resend_friend_request_after_rejection_cooldown(client, db_session):
 
     # ...pero pasada la espera, sí.
     request = db_session.get(FriendRequest, first.json()["id"])
-    request.created_at = datetime.now(timezone.utc) - timedelta(days=8)
+    request.created_at = datetime.now(timezone.utc) - timedelta(seconds=31)
     db_session.commit()
     again = client.post("/friends/request", json={"to_username": "NICO"}, headers=headers_a)
     assert again.status_code == 201, again.text

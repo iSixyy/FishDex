@@ -1,3 +1,6 @@
 # Ver también backend/.gitignore y mobile/.gitignore para reglas específicas.
 .DS_Store
 *.log
+
+# Configuración local del IDE (JetBrains / Android Studio)
+.idea/

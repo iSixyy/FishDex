@@ -14,9 +14,9 @@ from app.services import achievement_service, notification_service
 
 RARE_PLUS = {Rarity.RARE, Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC}
 
-# Tras un rechazo, el mismo remitente debe esperar antes de volver a pedir
-# amistad: sin esto podía reenviar al instante, con un aviso push cada vez.
-REJECTED_REQUEST_COOLDOWN = timedelta(days=7)
+# Tras un rechazo, el mismo remitente espera un momento antes de volver a pedir
+# amistad: lo justo para que no pueda reenviarla en bucle (un aviso push cada vez).
+REJECTED_REQUEST_COOLDOWN = timedelta(seconds=30)
 LEGENDARY_PLUS = {Rarity.LEGENDARY, Rarity.MYTHIC}
 
 
@@ -86,7 +86,7 @@ def send_friend_request(db: Session, from_user: User, to_username: str) -> Frien
             if sent_at is not None and datetime.now(timezone.utc) - sent_at < REJECTED_REQUEST_COOLDOWN:
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
-                    "Esa persona rechazó tu solicitud hace poco. Espera unos días para volver a intentarlo.",
+                    "Esa persona acaba de rechazar tu solicitud. Espera unos segundos para volver a intentarlo.",
                 )
         request.status = FriendRequestStatus.PENDING
         request.created_at = datetime.now(timezone.utc)
