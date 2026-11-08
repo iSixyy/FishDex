@@ -17,6 +17,7 @@ class CaptureCreate(BaseModel):
     location_name: str | None = Field(default=None, max_length=150)
     bait_technique: str | None = Field(default=None, max_length=120)
     client_id: str | None = Field(default=None, min_length=1, max_length=64)
+    released: bool = False  # captura y suelta
 
     @field_validator("captured_at")
     @classmethod
@@ -46,8 +47,9 @@ class CaptureUpdate(BaseModel):
     length_cm: float | None = Field(default=None, gt=0, le=1000)
     location_name: str | None = Field(default=None, max_length=150)
     bait_technique: str | None = Field(default=None, max_length=120)
+    released: bool | None = None
 
-    @field_validator("fish_species_id", "weight_kg", "length_cm")
+    @field_validator("fish_species_id", "weight_kg", "length_cm", "released")
     @classmethod
     def not_null(cls, value):
         # Se pueden omitir, pero no mandarse explícitamente a null.
@@ -69,6 +71,7 @@ class CapturePublic(BaseModel):
     longitude: float | None
     location_name: str | None
     bait_technique: str | None
+    released: bool = False
     captured_at: UtcDateTime
     elo_earned: int
     is_new_species: bool

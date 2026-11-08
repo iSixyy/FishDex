@@ -87,6 +87,7 @@ def _to_feed_entries(db: Session, user: User, captures: list[Capture]) -> list[F
             weight_kg=c.weight_kg,
             length_cm=c.length_cm,
             location_name=c.location_name,
+            released=c.released,
             captured_at=c.captured_at,
             like_count=like_counts.get(c.id, 0),
             comment_count=comment_counts.get(c.id, 0),

@@ -32,7 +32,11 @@ def _are_friends(db: Session, user_id: int, other_id: int) -> bool:
 def send_friend_request(db: Session, from_user: User, to_username: str) -> FriendRequest:
     # Sin distinguir mayúsculas: "Pepe" encuentra a "pepe".
     to_user = db.query(User).filter(func.lower(User.username) == to_username.strip().lower()).first()
-    if to_user is None:
+    # Con un bloqueo por medio (en cualquier sentido) se responde igual que si
+    # el usuario no existiera: no se revela que te han bloqueado.
+    from app.services.moderation_service import is_blocked_between
+
+    if to_user is None or is_blocked_between(db, from_user.id, to_user.id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
     if to_user.id == from_user.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No puedes enviarte una solicitud a ti mismo")

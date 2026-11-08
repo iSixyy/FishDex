@@ -20,11 +20,14 @@ from app.api.routes import (
     devices,
     feed,
     fish,
+    forecast,
     friends,
     map as map_routes,
+    moderation,
     quotes,
     ranking,
     regulations,
+    seasons,
     social,
     spots,
     users,
@@ -62,13 +65,16 @@ def _sync_reference_data() -> None:
 
 
 def _run_scheduled_jobs() -> None:
-    from app.services import challenge_service
+    from app.services import challenge_service, license_service, season_service
 
-    db = SessionLocal()
-    try:
-        challenge_service.run_scheduled(db)
-    finally:
-        db.close()
+    for job in (challenge_service.run_scheduled, season_service.award_finished_seasons, license_service.send_reminders):
+        db = SessionLocal()
+        try:
+            job(db)
+        except Exception:  # un fallo en una tarea no debe impedir las demás
+            logger.exception("Fallo en la tarea programada %s", job.__name__)
+        finally:
+            db.close()
 
 
 async def _scheduler_loop() -> None:
@@ -122,6 +128,9 @@ app.mount("/media", StaticFiles(directory=settings.storage_dir), name="media")
 
 app.include_router(auth.router)
 app.include_router(fish.router)
+# `moderation` antes que `users`: define `/users/me/blocked`, que si no
+# encajaría en `/users/{user_id}` y daría 422.
+app.include_router(moderation.router)
 app.include_router(users.router)
 app.include_router(captures.router)
 app.include_router(map_routes.router)
@@ -138,6 +147,8 @@ app.include_router(spots.router)
 app.include_router(challenges.router)
 app.include_router(devices.router)
 app.include_router(regulations.router)
+app.include_router(seasons.router)
+app.include_router(forecast.router)
 
 
 @app.get("/", tags=["health"])

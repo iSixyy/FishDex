@@ -296,13 +296,13 @@ def test_closed_season_window_crossing_new_year():
 
 
 # ---------------------------------------------------------------- logros / vitrina / push
-def test_forty_tiered_achievements_and_showcase(client, db_session):
+def test_tiered_achievements_and_showcase(client, db_session):
     headers, _ = register_and_login(client)
     species = _lubina_species(db_session)
     client.post("/captures", data=_capture_form(species.id, weight_kg=5.5), headers=headers)
 
     achievements = client.get("/achievements", headers=headers).json()
-    assert len(achievements) == 40
+    assert len(achievements) == 43
     assert {a["tier"] for a in achievements} == {"BRONZE", "SILVER", "GOLD"}
     unlocked = [a["code"] for a in achievements if a["unlocked"]]
     assert {"FIRST_CATCH", "HEAVY_5KG", "LONG_50CM"} <= set(unlocked)

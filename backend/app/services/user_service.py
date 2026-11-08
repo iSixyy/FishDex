@@ -5,6 +5,7 @@ from app.models.capture import Capture
 from app.models.fish_species import FishSpecies
 from app.models.user import User
 from app.schemas.user import RankInfo, UserPublic, UserProfile, UserStats
+from app.services.image_service import to_public_url
 
 
 def to_user_public(user: User) -> UserPublic:
@@ -13,7 +14,7 @@ def to_user_public(user: User) -> UserPublic:
         id=user.id,
         username=user.username,
         display_name=user.display_name,
-        avatar=user.avatar,
+        avatar=to_public_url(user.avatar),
         elo=user.elo,
         rank=RankInfo(**{k: rank[k] for k in ("key", "name", "icon", "min_elo", "max_elo", "description")}),
         created_at=user.created_at,
@@ -76,4 +77,11 @@ def build_user_profile(db: Session, user: User) -> UserProfile:
         achievement_service.to_public(a, at)
         for a, at in achievement_service.showcase(db, user.id, user.featured_badges)
     ]
-    return UserProfile(user=to_user_public(user), stats=build_user_stats(db, user.id), showcase=showcase)
+    from app.services import season_service
+
+    return UserProfile(
+        user=to_user_public(user),
+        stats=build_user_stats(db, user.id),
+        showcase=showcase,
+        season_awards=season_service.awards_for_user(db, user.id),
+    )

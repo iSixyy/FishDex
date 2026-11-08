@@ -60,6 +60,7 @@ def _compute_metrics(db: Session, user_id: int) -> dict[str, float]:
             or_(Capture.is_personal_record_weight.is_(True), Capture.is_personal_record_length.is_(True)),
         ).count(),
         "captures_with_photo": captures.filter(Capture.image_path.isnot(None)).count(),
+        "released_captures": captures.filter(Capture.released.is_(True)).count(),
         "challenges_won": db.query(Challenge).filter(Challenge.winner_id == user_id).count(),
         "spots": db.query(Spot).filter(Spot.user_id == user_id).count(),
     }

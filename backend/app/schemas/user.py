@@ -43,8 +43,11 @@ class UserProfile(BaseModel):
     # Vitrina de insignias (máx. 3). Import diferido para evitar el ciclo
     # common -> types -> user.
     showcase: list["AchievementPublic"] = []
+    # Insignias de temporada (ranking trimestral), de la más reciente a la más antigua.
+    season_awards: list["SeasonAwardPublic"] = []
 
 
 from app.schemas.common import AchievementPublic  # noqa: E402
+from app.schemas.season import SeasonAwardPublic  # noqa: E402
 
 UserProfile.model_rebuild()

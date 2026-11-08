@@ -51,6 +51,8 @@ def _configure_render_mode(reset: bool) -> None:
             "PUSH_ENABLED": "false",
             # El usuario de demo puede crear eventos oficiales.
             "ADMIN_USERNAMES": "samuel",
+            # Sin red en la demo: clima sintético para ver la previsión de picada.
+            "WEATHER_DEMO_MODE": "true",
             "ENVIRONMENT": "development",
         }
     )

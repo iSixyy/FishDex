@@ -44,6 +44,9 @@ REPEAT_CAPTURE_ELO_MIN = 2
 
 # Bonus fijos (se suman al ELO calculado de la captura).
 PERSONAL_RECORD_BONUS_ELO = 25
+# Captura y suelta: devolver el pez al agua suma algo de ELO (no cuenta si la
+# captura ya no da ELO por el límite diario anti-farmeo).
+RELEASE_BONUS_ELO = 5
 EXCEPTIONAL_SIZE_BONUS_ELO = 15  # cuando peso o longitud superan claramente la media de la especie
 EXCEPTIONAL_SIZE_THRESHOLD_RATIO = 0.9  # % del máximo habitual de la especie para considerarse "excepcional"
 

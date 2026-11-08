@@ -148,6 +148,18 @@ class RankingPage(BaseModel):
     me: RankedValueEntry | None
 
 
+class SeasonPage(BaseModel):
+    """Ranking de la temporada en curso (trimestre)."""
+
+    key: str
+    name: str
+    starts_at: UtcDateTime
+    ends_at: UtcDateTime
+    entries: list[RankedValueEntry]
+    me: RankedValueEntry | None
+    rewards: list["SeasonReward"]
+
+
 # --- Normativa ---
 class RegulationWarning(BaseModel):
     kind: str
@@ -165,3 +177,8 @@ class RegulationCheck(BaseModel):
 # --- Logros / vitrina ---
 class ShowcaseUpdate(BaseModel):
     codes: list[str] = Field(default_factory=list, max_length=3)
+
+
+from app.schemas.season import SeasonReward  # noqa: E402
+
+SeasonPage.model_rebuild()

@@ -67,9 +67,33 @@ def save_capture_image(raw_bytes: bytes) -> tuple[str, str]:
     return f"original/{original_name}", f"thumbnails/{thumb_name}"
 
 
+AVATAR_DIMENSION = 320
+
+
+def save_avatar_image(raw_bytes: bytes) -> str:
+    """Guarda una foto de perfil recortada al cuadrado central (320x320).
+    Devuelve la ruta relativa. Mismas validaciones que las capturas."""
+    base = Path(settings.storage_dir) / "avatars"
+    base.mkdir(parents=True, exist_ok=True)
+    image = Image.open(io.BytesIO(raw_bytes))
+    width, height = image.size
+    if width * height > MAX_INPUT_PIXELS:
+        raise ImageTooLargeError(f"Imagen demasiado grande: {width}x{height}")
+    image.load()
+    image = ImageOps.exif_transpose(image)
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    avatar = ImageOps.fit(image, (AVATAR_DIMENSION, AVATAR_DIMENSION))
+    name = f"{uuid.uuid4().hex}.jpg"
+    avatar.save(base / name, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+    return f"avatars/{name}"
+
+
 def to_public_url(relative_path: str | None) -> str | None:
     if not relative_path:
         return None
+    if relative_path.startswith(("http://", "https://", "/")):
+        return relative_path
     return f"/media/{relative_path}"
 
 

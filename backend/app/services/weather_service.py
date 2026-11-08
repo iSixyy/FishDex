@@ -108,10 +108,44 @@ def _fetch(client: httpx.Client, url: str, params: dict) -> dict | None:
         return None
 
 
+def _demo_conditions(latitude: float, longitude: float) -> dict:
+    """Condiciones sintéticas y deterministas para la demo sin conexión
+    (`WEATHER_DEMO_MODE`, solo lo activa `run.py --render`)."""
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+    seed = int(abs(latitude * 100) + abs(longitude * 100)) % 7
+    next_high = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1 + seed % 2)
+    tides = []
+    for i in range(4):
+        moment = next_high + timedelta(hours=6.2 * i)
+        tides.append({
+            "type": "HIGH" if i % 2 == 0 else "LOW",
+            "time": moment.strftime("%Y-%m-%dT%H:%M") + ":00Z",
+            "height_m": round(3.4 - (i % 2) * 2.6 + seed * 0.05, 2),
+        })
+    return {
+        "fetched_at": now.isoformat(),
+        "summary": "Poco nuboso",
+        "air_temperature_c": 17.0 + seed,
+        "wind_speed_kmh": 8.0 + seed,
+        "wind_direction_deg": 300,
+        "pressure_hpa": 1004.0 + seed * 3,
+        "cloud_cover_pct": 45,
+        "water_temperature_c": 15.5 + seed * 0.3,
+        "wave_height_m": 0.6 + seed * 0.1,
+        "tides": tides,
+        "moon": moon_phase(),
+        "demo": True,
+    }
+
+
 def get_conditions(latitude: float, longitude: float) -> dict | None:
     """Condiciones actuales en un punto, o None si el servicio está
     desactivado o no ha respondido nada útil."""
     settings = get_settings()
+    if settings.weather_demo_mode:
+        return _demo_conditions(latitude, longitude)
     if not settings.weather_enabled:
         return None
     key = (round(latitude, 2), round(longitude, 2))

@@ -11,6 +11,7 @@ from app.core.game_config import (
     GAME_TIMEZONE,
     MAX_ELO_REWARDING_CAPTURES_PER_SPECIES_PER_DAY,
     PERSONAL_RECORD_BONUS_ELO,
+    RELEASE_BONUS_ELO,
     RARITY_BASE_ELO,
     REPEAT_CAPTURE_ELO_MIN,
     REPEAT_CAPTURE_ELO_RATIO,
@@ -26,11 +27,12 @@ class EloBreakdown:
         self.base = 0
         self.record_bonus = 0
         self.size_bonus = 0
+        self.release_bonus = 0
         self.capped_by_daily_limit = False
 
     @property
     def total(self) -> int:
-        return self.base + self.record_bonus + self.size_bonus
+        return self.base + self.record_bonus + self.size_bonus + self.release_bonus
 
 
 _GAME_TZ = ZoneInfo(GAME_TIMEZONE)
@@ -92,6 +94,7 @@ def calculate_capture_elo(
     is_new_species: bool,
     is_personal_record: bool,
     captured_at: datetime,  # define el día de pesca del límite anti-farmeo
+    released: bool = False,
 ) -> EloBreakdown:
     breakdown = EloBreakdown()
     rarity = Rarity(species.rarity)
@@ -115,6 +118,9 @@ def calculate_capture_elo(
     length_threshold = species.approx_max_length_cm * EXCEPTIONAL_SIZE_THRESHOLD_RATIO
     if weight_kg >= size_threshold or length_cm >= length_threshold:
         breakdown.size_bonus = EXCEPTIONAL_SIZE_BONUS_ELO
+
+    if released:
+        breakdown.release_bonus = RELEASE_BONUS_ELO
 
     return breakdown
 
@@ -175,6 +181,8 @@ def recalculate_user_elo(db: Session, user_id: int) -> int:
                 or capture.length_cm >= species.approx_max_length_cm * EXCEPTIONAL_SIZE_THRESHOLD_RATIO
             ):
                 breakdown.size_bonus = EXCEPTIONAL_SIZE_BONUS_ELO
+            if capture.released:
+                breakdown.release_bonus = RELEASE_BONUS_ELO
 
         capture.is_new_species = is_new
         capture.is_personal_record_weight = record_weight

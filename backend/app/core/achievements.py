@@ -1,5 +1,5 @@
-"""Catálogo de logros: 13 familias x 3 niveles (bronce/plata/oro) + la
-primera captura = 40 logros.
+"""Catálogo de logros: 14 familias x 3 niveles (bronce/plata/oro) + la
+primera captura = 43 logros.
 
 Cada logro se desbloquea cuando una MÉTRICA del usuario alcanza su umbral
 (ver `achievement_service._compute_metrics`). Los códigos de la versión
@@ -90,6 +90,11 @@ _FAMILIES: list[tuple[str, str, str, list[tuple[str, str, str, float]]]] = [
         ("CHALLENGES_1", "Primera victoria", "Gana tu primer reto o torneo.", 1),
         ("CHALLENGES_5", "Rival temible", "Gana 5 retos o torneos.", 5),
         ("CHALLENGES_15", "Campeón indiscutible", "Gana 15 retos o torneos.", 15),
+    ]),
+    ("release", "released_captures", "🔄", [
+        ("RELEASE_1", "Captura y suelta", "Devuelve tu primer pez al agua.", 1),
+        ("RELEASE_10", "Guardián del río", "Devuelve 10 peces al agua.", 10),
+        ("RELEASE_50", "Pescador responsable", "Devuelve 50 peces al agua.", 50),
     ]),
     ("spots", "spots", "📍", [
         ("SPOTS_1", "Mi rincón", "Guarda tu primer spot de pesca.", 1),

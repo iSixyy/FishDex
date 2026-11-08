@@ -58,6 +58,9 @@ class Capture(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
 
+    # Captura y suelta: el pescador devolvió el pez al agua (bonus de ELO).
+    released: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     elo_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_new_species: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_personal_record_weight: Mapped[bool] = mapped_column(default=False, nullable=False)

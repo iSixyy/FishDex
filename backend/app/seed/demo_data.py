@@ -99,6 +99,8 @@ def load_demo_data() -> None:
                     "latitude": str(lat + rng.uniform(-0.05, 0.05)),
                     "longitude": str(lon + rng.uniform(-0.05, 0.05)),
                     "bait_technique": "Vinilo / Spinning",
+                    # Algunas, devueltas al agua (captura y suelta).
+                    "released": "true" if i in (1, 5, 11) else "false",
                 },
                 files={"image": ("pez.jpg", _fish_photo(_COLORS[i % len(_COLORS)], rng), "image/jpeg")},
             ).raise_for_status()
@@ -132,3 +134,65 @@ def load_demo_data() -> None:
             client.post(f"/captures/{entry['id']}/like", headers=headers["lucia"])
         if feed:
             client.post(f"/captures/{feed[0]['id']}/comments", headers=headers["lucia"], json={"text": "¡Menuda pieza!"})
+
+        # Mapa de calor: varias personas pescando en las mismas zonas (solo
+        # se muestran zonas con 2+ pescadores distintos).
+        for i, (lat, lon) in enumerate(_SPOTS):
+            for j, username in enumerate(("lucia", "pablo", me)[: 2 + (i % 2)]):
+                client.post(
+                    "/captures",
+                    headers=headers[username],
+                    data={
+                        "fish_species_id": str(catalog[(i + j) % len(catalog)]),
+                        "weight_kg": "1.2",
+                        "length_cm": "35",
+                        "captured_at": (now - timedelta(days=3 + i + j, hours=2)).isoformat(),
+                        "latitude": str(lat + rng.uniform(-0.01, 0.01)),
+                        "longitude": str(lon + rng.uniform(-0.01, 0.01)),
+                    },
+                )
+
+        # Foto de perfil del usuario demo.
+        client.post(
+            "/users/me/avatar",
+            headers=headers[me],
+            files={"image": ("avatar.jpg", _fish_photo((210, 170, 70), rng), "image/jpeg")},
+        )
+
+        # Licencia de pesca a punto de caducar (se ve el aviso en Ajustes).
+        expires = (now + timedelta(days=21)).date().isoformat()
+        client.put("/users/me/license", headers=headers[me], json={"expires_on": expires, "region": "Galicia"})
+
+        # Un usuario bloqueado, para la pantalla de Ajustes > Bloqueados.
+        troll = client.post(
+            "/auth/register",
+            json={"username": "spam_pesca", "email": "spam@demo.es", "password": DEMO_PASSWORD, "display_name": "Ofertas Cañas"},
+        ).json()["user"]
+        client.post(f"/users/{troll['id']}/block", headers=headers[me])
+
+    _seed_past_season_awards(users[me]["id"], users["lucia"]["id"], users["pablo"]["id"])
+
+
+def _seed_past_season_awards(me_id: int, lucia_id: int, pablo_id: int) -> None:
+    """Insignias de las dos temporadas anteriores, para ver el perfil con
+    premios sin esperar 3 meses."""
+    from app.database import SessionLocal
+    from app.models.season import SeasonAward, SeasonTier
+    from app.services.season_service import season_for
+
+    previous = season_for().previous()
+    older = previous.previous()
+    rows = [
+        (previous, me_id, 2, 412, SeasonTier.PODIUM),
+        (previous, lucia_id, 1, 455, SeasonTier.CHAMPION),
+        (previous, pablo_id, 3, 280, SeasonTier.PODIUM),
+        (older, me_id, 1, 390, SeasonTier.CHAMPION),
+        (older, pablo_id, 6, 120, SeasonTier.TOP10),
+    ]
+    db = SessionLocal()
+    try:
+        for season, user_id, position, points, tier in rows:
+            db.add(SeasonAward(season_key=season.key, user_id=user_id, position=position, points=points, tier=tier))
+        db.commit()
+    finally:
+        db.close()

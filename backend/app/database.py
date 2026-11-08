@@ -70,10 +70,17 @@ def run_light_migrations() -> None:
             ("bait_technique", "VARCHAR(120)"),
             ("client_id", "VARCHAR(64)"),
             ("weather_json", "TEXT"),
+            ("released", "BOOLEAN NOT NULL DEFAULT 0"),
         ],
         "users": [
             ("featured_badges", "VARCHAR(255)"),
             ("token_version", "INTEGER NOT NULL DEFAULT 0"),
+            ("password_reset_code_hash", "VARCHAR(128)"),
+            ("password_reset_expires_at", "DATETIME"),
+            ("password_reset_attempts", "INTEGER NOT NULL DEFAULT 0"),
+            ("license_expires_on", "DATE"),
+            ("license_region", "VARCHAR(80)"),
+            ("license_reminder_stage", "INTEGER NOT NULL DEFAULT 0"),
         ],
         "fish_species": [
             ("catch_difficulty", "INTEGER"),

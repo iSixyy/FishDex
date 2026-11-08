@@ -21,6 +21,7 @@ class FeedEntry(BaseModel):
     weight_kg: float
     length_cm: float
     location_name: str | None
+    released: bool = False
     captured_at: UtcDateTime
     caption: str | None = None  # reservado: de momento no hay descripción de captura
     like_count: int

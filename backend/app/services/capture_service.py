@@ -56,6 +56,7 @@ def capture_to_public(capture: Capture) -> CapturePublic:
         longitude=capture.longitude,
         location_name=capture.location_name,
         bait_technique=capture.bait_technique,
+        released=capture.released,
         captured_at=capture.captured_at,
         elo_earned=capture.elo_earned,
         is_new_species=capture.is_new_species,
@@ -250,6 +251,7 @@ def create_capture(db: Session, user: User, payload: CaptureCreate, raw_image: b
             is_new_species=is_new_species,
             is_personal_record=is_personal_record,
             captured_at=payload.captured_at,
+            released=payload.released,
         )
 
         capture = Capture(
@@ -265,6 +267,7 @@ def create_capture(db: Session, user: User, payload: CaptureCreate, raw_image: b
             autonomous_community=autonomous_community,
             bait_technique=payload.bait_technique,
             client_id=payload.client_id,
+            released=payload.released,
             weather_json=json.dumps(conditions) if conditions else None,
             captured_at=payload.captured_at,
             elo_earned=breakdown.total,

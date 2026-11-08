@@ -40,6 +40,7 @@ async def register_capture(
     location_name: str | None = Form(default=None),
     bait_technique: str | None = Form(default=None),
     client_id: str | None = Form(default=None),
+    released: bool = Form(default=False),
     image: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -55,6 +56,7 @@ async def register_capture(
             location_name=location_name,
             bait_technique=bait_technique,
             client_id=client_id,
+            released=released,
         )
     except ValidationError as exc:
         # `exc.errors()` incluye el ValueError original en `ctx` y el valor de

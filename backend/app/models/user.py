@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Index, Integer, String, func
+from sqlalchemy import Date, DateTime, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -28,6 +28,18 @@ class User(Base):
     # Versión de sesión: va en cada JWT y se incrementa al cerrar sesión, lo
     # que invalida todos los tokens emitidos antes.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Recuperación de contraseña: hash del código de 6 cifras enviado por
+    # correo, su caducidad y los intentos fallidos (máx. 5).
+    password_reset_code_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_reset_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Licencia de pesca: caducidad, comunidad que la expide y último aviso
+    # enviado (0 = ninguno, 1 = a 30 días, 2 = a 7 días, 3 = caducada).
+    license_expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    license_region: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    license_reminder_stage: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     captures: Mapped[list["Capture"]] = relationship(back_populates="user", cascade="all, delete-orphan")

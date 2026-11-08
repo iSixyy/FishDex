@@ -51,6 +51,19 @@ class Settings(BaseSettings):
     # separados por coma. Ej: ADMIN_USERNAMES=admin,samuel
     admin_usernames: str = ""
 
+    # Correo saliente (recuperar contraseña). Sin SMTP_HOST el código se
+    # escribe en el log del servidor (útil en desarrollo).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "FishDex <no-reply@fishdex.app>"
+    smtp_starttls: bool = True
+
+    # Solo para la demo (`run.py --render`): clima sintético en vez de llamar
+    # a Open-Meteo, para que la previsión de picada se vea sin conexión.
+    weather_demo_mode: bool = False
+
     rate_limit_enabled: bool = True
     # Detrás de un proxy inverso (nginx, Caddy, un balanceador...) todas las
     # peticiones llegan con la IP del proxy y el rate limit por IP se vuelve

@@ -52,9 +52,12 @@ def list_comments(db: Session, current_user: User, capture_id: int, limit: int, 
     capture = _get_capture_or_404(db, capture_id)
     _assert_can_interact(db, current_user, capture)
 
+    from app.services.moderation_service import hidden_user_ids
+
+    hidden = hidden_user_ids(db, current_user.id)
     return (
         db.query(CaptureComment)
-        .filter(CaptureComment.capture_id == capture.id)
+        .filter(CaptureComment.capture_id == capture.id, CaptureComment.user_id.notin_(hidden))
         .order_by(CaptureComment.created_at.asc())
         .limit(limit)
         .offset(offset)

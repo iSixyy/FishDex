@@ -17,3 +17,18 @@ class MapCapturePin(BaseModel):
     longitude: float
     location_name: str | None
     captured_at: UtcDateTime
+
+
+class HeatmapCell(BaseModel):
+    latitude: float   # centro de la celda (no la posición de ninguna captura)
+    longitude: float
+    captures: int
+    anglers: int
+
+
+class HeatmapResponse(BaseModel):
+    species_id: int | None
+    species_name: str | None
+    cell_size_deg: float
+    min_anglers: int
+    cells: list[HeatmapCell]
