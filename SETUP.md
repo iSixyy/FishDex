@@ -92,6 +92,33 @@ falta tocar el firewall.
 Para un **móvil físico** en la misma WiFi, cambia esa línea por la IP local
 del PC (`http://192.168.1.135:8000`) y reinicia Metro con `--clear`.
 
+## Publicar la app (builds de EAS y servidor)
+
+**App (EAS).** El perfil `production` necesita la URL **https** del backend;
+si falta, `app.config.js` para el build con un error en vez de publicar una
+app que apunta al emulador:
+
+| Variable (en el `env` del perfil de `eas.json` o en EAS) | Para qué |
+|---|---|
+| `EXPO_PUBLIC_API_URL` | URL del backend. Obligatoria y `https://` en `production`. |
+| `EAS_PROJECT_ID` | Id del proyecto de EAS (`eas init`). Sin él no hay notificaciones push. |
+| `GOOGLE_MAPS_API_KEY` | Mapas en builds nativos de Android. |
+
+Con una URL `http://` (perfiles de desarrollo y `preview`) se permite el
+tráfico HTTP sin TLS en Android; con `https://` se bloquea.
+
+**Backend (`backend/.env`).**
+
+| Variable | Para qué |
+|---|---|
+| `ENVIRONMENT=production` + `JWT_SECRET_KEY` | Clave real de al menos 32 caracteres. |
+| `ADMIN_USERNAMES` | Usuarios administradores. Registra esos nombres tú antes de abrir la app al público. |
+| `TRUST_PROXY_HEADERS=true` | Solo detrás de un proxy inverso que sobrescriba `X-Forwarded-For`: el rate limit usa la IP real del cliente. |
+
+Se puede arrancar con varios workers de uvicorn: la tarea periódica de
+retos corre en cada uno, pero el cierre de retos y los avisos son atómicos y
+no se duplican.
+
 ## Probar la app en el navegador (modo demo)
 
 Un solo comando levanta la API **y** la app en el navegador (Metro), y abre el
