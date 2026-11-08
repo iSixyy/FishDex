@@ -114,10 +114,11 @@ tráfico HTTP sin TLS en Android; con `https://` se bloquea.
 | `ENVIRONMENT=production` + `JWT_SECRET_KEY` | Clave real de al menos 32 caracteres. |
 | `ADMIN_USERNAMES` | Usuarios administradores. Registra esos nombres tú antes de abrir la app al público. |
 | `TRUST_PROXY_HEADERS=true` | Solo detrás de un proxy inverso que sobrescriba `X-Forwarded-For`: el rate limit usa la IP real del cliente. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Correo para recuperar la contraseña. Sin `SMTP_HOST` el código se escribe en el log del servidor. |
 
 Se puede arrancar con varios workers de uvicorn: la tarea periódica de
-retos corre en cada uno, pero el cierre de retos y los avisos son atómicos y
-no se duplican.
+retos (y la de temporadas y avisos de licencia) corre en cada uno, pero los
+cierres y los avisos son atómicos y no se duplican.
 
 ## Probar la app en el navegador (modo demo)
 
