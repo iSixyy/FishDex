@@ -12,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useStyles, useTheme } from "@/context/ThemeContext";
 import { deleteAccount } from "@/services/accountService";
 import { extractErrorMessage } from "@/services/api";
+import { dropQueuedCapturesOf } from "@/services/syncQueue";
 import { Alert } from "@/utils/alert";
 
 const WHAT_IS_DELETED = [
@@ -25,7 +26,7 @@ const WHAT_IS_DELETED = [
 export default function DeleteAccountScreen() {
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
 
@@ -39,6 +40,7 @@ export default function DeleteAccountScreen() {
     setDeleting(true);
     try {
       await deleteAccount(password);
+      if (user) await dropQueuedCapturesOf(user.id).catch(() => undefined);
       await logout({ revokeOnServer: false }).catch(() => undefined);
       router.replace("/");
     } catch (err) {

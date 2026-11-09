@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, DateTime, Index, Integer, String, func
@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 
 class User(Base):
     __tablename__ = "users"
+    # AUTOINCREMENT: SQLite no vuelve a dar el id de una cuenta borrada a la
+    # siguiente que se registra (solo afecta a bases creadas desde cero; en
+    # las existentes protege la comprobación de `iat` de `get_current_user`).
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
@@ -40,7 +44,11 @@ class User(Base):
     license_expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     license_region: Mapped[str | None] = mapped_column(String(80), nullable=True)
     license_reminder_stage: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Default en Python (con el mismo reloj que firma los tokens) además del
+    # del servidor: `get_current_user` lo compara con el `iat` del JWT.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
 
     captures: Mapped[list["Capture"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     elo_history: Mapped[list["EloHistory"]] = relationship(back_populates="user", cascade="all, delete-orphan")

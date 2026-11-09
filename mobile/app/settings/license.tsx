@@ -32,6 +32,10 @@ function toIso(text: string): string | null {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function daysLabel(days: number): string {
+  return days === 1 ? "1 día" : `${days} días`;
+}
+
 /** Licencia de pesca: fecha de caducidad y comunidad. FishDex avisa por push
  * a 30 días, a 7 días y el día que caduca. */
 export default function LicenseScreen() {
@@ -78,10 +82,10 @@ export default function LicenseScreen() {
     days == null
       ? "Sin licencia guardada"
       : days < 0
-        ? `Caducada hace ${-days} días`
+        ? `Caducada hace ${daysLabel(-days)}`
         : days === 0
           ? "Caduca hoy"
-          : `Válida · quedan ${days} días`;
+          : `Válida · ${days === 1 ? "queda" : "quedan"} ${daysLabel(days)}`;
 
   return (
     <DexScreen title="Licencia" counter="Licencia de pesca" onBack={() => router.back()}>

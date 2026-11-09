@@ -49,6 +49,18 @@ async function removeFromQueue(localId: string): Promise<void> {
   });
 }
 
+/** Quita de la cola las capturas pendientes de una cuenta que ya no existe
+ * (se ha borrado). Si no, se quedaban para siempre en el móvil esperando a
+ * que "su dueño volviera a entrar", con sus fotos ocupando espacio. */
+export async function dropQueuedCapturesOf(userId: number): Promise<void> {
+  const dropped = await withQueueLock(async () => {
+    const queue = await getQueue();
+    await saveQueue(queue.filter((item) => item.user_id !== userId));
+    return queue.filter((item) => item.user_id === userId);
+  });
+  await Promise.all(dropped.map((item) => deletePersistedImage(item.image_uri).catch(() => undefined)));
+}
+
 export async function getDiscardedCaptures(): Promise<DiscardedCapture[]> {
   return (await getCache<DiscardedCapture[]>(STORAGE_KEYS.SYNC_DISCARDED)) ?? [];
 }

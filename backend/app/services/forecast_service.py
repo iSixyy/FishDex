@@ -109,6 +109,8 @@ def bite_forecast(conditions: dict | None, now: datetime | None = None) -> dict:
         "label": _label(score),
         "summary": best["detail"] if best else "Sin factores destacables: día normal de pesca.",
         "factors": factors,
-        "partial": not conditions or "pressure_hpa" not in conditions,
+        # La clave siempre existe (a None si Open-Meteo no la dio): hay que
+        # mirar el valor, no la clave, o un fallo del clima no se señalaba.
+        "partial": conditions.get("pressure_hpa") is None and conditions.get("wind_speed_kmh") is None,
         "computed_at": now.isoformat(),
     }

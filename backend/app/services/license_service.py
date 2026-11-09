@@ -10,10 +10,14 @@ from app.services import notification_service
 
 # (etapa, días que faltan como máximo, texto), de la más urgente a la menos.
 _STAGES = [
-    (3, 0, "Tu licencia de pesca{region} ha caducado. Renuévala antes de volver a pescar."),
-    (2, 7, "Tu licencia de pesca{region} caduca en {days} días."),
-    (1, 30, "Tu licencia de pesca{region} caduca en {days} días. ¡Que no te pille el guarda!"),
+    (3, 0, "Tu licencia de pesca{region} {expired}. Renuévala antes de volver a pescar."),
+    (2, 7, "Tu licencia de pesca{region} caduca en {days}."),
+    (1, 30, "Tu licencia de pesca{region} caduca en {days}. ¡Que no te pille el guarda!"),
 ]
+
+
+def _days_label(days: int) -> str:
+    return "1 día" if days == 1 else f"{days} días"
 
 
 def _stage_for(days_left: int) -> tuple[int, str] | None:
@@ -46,7 +50,12 @@ def send_reminders(db: Session, today: date | None = None) -> int:
             continue
         region = f" ({user.license_region})" if user.license_region else ""
         notification_service.notify_users(
-            db, [user.id], "Licencia de pesca", text.format(region=region, days=max(days_left, 0)),
+            db, [user.id], "Licencia de pesca", text.format(
+                region=region,
+                days=_days_label(max(days_left, 0)),
+                # El último día aún es válida: "caduca hoy", no "ha caducado".
+                expired="caduca hoy" if days_left == 0 else "ha caducado",
+            ),
             {"type": "license"},
         )
         sent += 1

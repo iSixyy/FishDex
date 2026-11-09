@@ -73,7 +73,11 @@ def _to_feed_entries(db: Session, user: User, captures: list[Capture]) -> list[F
     # cada captura (mismo patrón que `friend_service.species_discovered_counts`).
     capture_ids = [c.id for c in captures]
     like_counts = _like_counts(db, capture_ids)
-    comment_counts = _comment_counts(db, capture_ids)
+    # Mismo criterio que `social_service.list_comments`: los comentarios de
+    # usuarios bloqueados no se ven, así que tampoco cuentan.
+    from app.services.moderation_service import hidden_user_ids
+
+    comment_counts = _comment_counts(db, capture_ids, hidden_user_ids(db, user.id))
     liked_ids = _liked_by_user(db, capture_ids, user.id)
 
     return [
@@ -109,12 +113,16 @@ def _like_counts(db: Session, capture_ids: list[int]) -> dict[int, int]:
     return dict(rows)
 
 
-def _comment_counts(db: Session, capture_ids: list[int]) -> dict[int, int]:
+def _comment_counts(db: Session, capture_ids: list[int], hidden: set[int] | None = None) -> dict[int, int]:
     if not capture_ids:
         return {}
+    query = db.query(CaptureComment.capture_id, func.count(CaptureComment.id)).filter(
+        CaptureComment.capture_id.in_(capture_ids)
+    )
+    if hidden:
+        query = query.filter(CaptureComment.user_id.notin_(hidden))
     rows = (
-        db.query(CaptureComment.capture_id, func.count(CaptureComment.id))
-        .filter(CaptureComment.capture_id.in_(capture_ids))
+        query
         .group_by(CaptureComment.capture_id)
         .all()
     )

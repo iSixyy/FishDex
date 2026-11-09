@@ -156,7 +156,10 @@ def get_conditions(latitude: float, longitude: float) -> dict | None:
     with httpx.Client(timeout=settings.weather_timeout_seconds) as client:
         forecast = _fetch(client, FORECAST_URL, {
             "latitude": latitude, "longitude": longitude, "timezone": "UTC",
-            "current": "temperature_2m,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,weather_code",
+            # `pressure_msl` (reducida al nivel del mar) y no `surface_pressure`:
+            # la de superficie depende de la altitud (~940 hPa en Madrid) y la
+            # previsión de picada marcaba "borrasca" en cualquier spot de interior.
+            "current": "temperature_2m,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover,weather_code",
         })
         marine = _fetch(client, MARINE_URL, {
             "latitude": latitude, "longitude": longitude, "timezone": "UTC", "forecast_days": 2,
@@ -175,7 +178,7 @@ def get_conditions(latitude: float, longitude: float) -> dict | None:
         "air_temperature_c": current.get("temperature_2m"),
         "wind_speed_kmh": current.get("wind_speed_10m"),
         "wind_direction_deg": current.get("wind_direction_10m"),
-        "pressure_hpa": current.get("surface_pressure"),
+        "pressure_hpa": current.get("pressure_msl"),
         "cloud_cover_pct": current.get("cloud_cover"),
         "water_temperature_c": marine_current.get("sea_surface_temperature"),
         "wave_height_m": marine_current.get("wave_height"),
